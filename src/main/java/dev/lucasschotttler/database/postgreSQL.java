@@ -21,7 +21,10 @@ public class postgreSQL {
     }
     
     // Example: Get data from a table
-    public List<Map<String, Object>> getData(String tableName) {
-        return jdbcTemplate.queryForList("SELECT * FROM " + tableName);
+    public List<String> getImages(String tableName, String SKU) {
+        return jdbcTemplate.queryForList(
+            "SELECT web_api FROM " + tableName + " WHERE filename LIKE '%" + SKU + "%';", 
+            String.class
+        );
     }
 }
