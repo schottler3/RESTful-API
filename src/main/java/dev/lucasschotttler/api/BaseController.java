@@ -42,13 +42,16 @@ class SuperiorController {
         try {
             return ResponseEntity.status(HttpStatus.OK).body(db.createEntries());
         } catch (IOException e) {
-            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error during update: " + e.getMessage());
         } catch (InterruptedException e) {
-            e.printStackTrace();
             Thread.currentThread().interrupt();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Update interrupted: " + e.getMessage());
         }
+    }
+
+    @GetMapping("/health")
+    public ResponseEntity<String> health() {
+        return ResponseEntity.ok("{\"status\":\"UP\"}");
     }
 }
 

@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS superior (
     description TEXT,
     upc VARCHAR(128),
     brand VARCHAR(128),
+    quantity SMALLINT NOT NULL,
     
     sku VARCHAR(255) NOT NULL,
     name TEXT,

@@ -58,6 +58,12 @@
 			<version>2.15.2</version>
 		</dependency>
 
+		<dependency>
+			<groupId>jakarta.servlet</groupId>
+			<artifactId>jakarta.servlet-api</artifactId>
+			<scope>provided</scope>
+		</dependency>
+
 	</dependencies>
 
 	<build>

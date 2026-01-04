@@ -34,3 +34,11 @@ build/
 
 .env
 milwaukee_simple.csv
+*.log
+logs/
+
+### SSL Certificates ###
+ssl/
+*.pem
+*.crt
+*.key

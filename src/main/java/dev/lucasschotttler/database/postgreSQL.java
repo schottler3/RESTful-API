@@ -196,6 +196,10 @@ public class postgreSQL {
 }
     
     public List<String> getImages(String tableName, String SKU) {
+        // Whitelist table names to prevent SQL injection
+        if (!tableName.equals("milwaukee_assets")) {
+            throw new IllegalArgumentException("Invalid table name");
+        }
         String sql = "SELECT web_api FROM " + tableName + " WHERE filename LIKE ?";
         String pattern = "%" + SKU + "%";
         return jdbcTemplate.queryForList(sql, String.class, pattern);
