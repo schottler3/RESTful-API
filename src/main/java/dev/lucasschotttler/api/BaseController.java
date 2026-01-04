@@ -1,7 +1,7 @@
 package dev.lucasschotttler.api;
 
+import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,19 +14,12 @@ import dev.lucasschotttler.database.postgreSQL;
 @RestController
 public class BaseController {
 
-    private final postgreSQL db;
-
-    public BaseController(postgreSQL db) {
-        this.db = db;
-    }
-
     @GetMapping("/")
     public ResponseEntity<String> endpoints() {
         String endpointInfo = """
             {"endpoints": 
                 [
-                    "superior",
-                    "earthpol"
+                    "superior"
                 ]
             }
         """;
@@ -44,9 +37,18 @@ class SuperiorController {
         this.db = db;
     }
 
-    @GetMapping
-    public ResponseEntity<String> test() {
-        return ResponseEntity.status(HttpStatus.OK).body(db.testConnection());
+    @GetMapping("/update")
+    public ResponseEntity<String> update() {
+        try {
+            return ResponseEntity.status(HttpStatus.OK).body(db.createEntries());
+        } catch (IOException e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error during update: " + e.getMessage());
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            Thread.currentThread().interrupt();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Update interrupted: " + e.getMessage());
+        }
     }
 }
 

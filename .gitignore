@@ -33,3 +33,4 @@ build/
 .vscode/
 
 .env
+milwaukee_simple.csv
