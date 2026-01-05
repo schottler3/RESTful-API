@@ -36,6 +36,7 @@ build/
 milwaukee_simple.csv
 *.log
 logs/
+*.csv
 
 ### SSL Certificates ###
 ssl/
