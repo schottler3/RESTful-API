@@ -202,7 +202,7 @@ public class postgreSQL {
     }
 
     public List<String> getImages(String SKU) {
-        String sql = "SELECT web_api FROM " + tableName + " WHERE filename LIKE ?";
+        String sql = "SELECT web_api FROM milwaukee_assets WHERE filename LIKE ?";
         String pattern = "%" + SKU + "%";
         return jdbcTemplate.queryForList(sql, String.class, pattern);
     }
