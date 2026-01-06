@@ -67,7 +67,7 @@ class SkuController {
 
     @GetMapping("/{SKU}")
     public ResponseEntity<List<String>> tools(@PathVariable String SKU) {
-        return ResponseEntity.status(HttpStatus.OK).body(db.getSku("superior", SKU));
+        return ResponseEntity.status(HttpStatus.OK).body(db.getSku(SKU));
     }
 }
 
