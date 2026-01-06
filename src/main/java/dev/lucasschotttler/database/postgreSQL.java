@@ -195,11 +195,13 @@ public class postgreSQL {
     return "Success";
 }
     
-    public List<String> getImages(String tableName, String SKU) {
-        // Whitelist table names to prevent SQL injection
-        if (!tableName.equals("milwaukee_assets")) {
-            throw new IllegalArgumentException("Invalid table name");
-        }
+    public List<String> getSku(String SKU) {
+        String sql = "SELECT * FROM superior WHERE sku = ?";
+        String pattern = "%" + SKU + "%";
+        return jdbcTemplate.queryForList(sql, String.class, pattern);
+    }
+
+    public List<String> getImages(String SKU) {
         String sql = "SELECT web_api FROM " + tableName + " WHERE filename LIKE ?";
         String pattern = "%" + SKU + "%";
         return jdbcTemplate.queryForList(sql, String.class, pattern);

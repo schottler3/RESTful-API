@@ -56,6 +56,22 @@ class SuperiorController {
 }
 
 @RestController
+@RequestMapping("/superior/sku")
+class DataController {
+
+    private final postgreSQL db;
+
+    public DataController(postgreSQL db) {
+        this.db = db;
+    }
+
+    @GetMapping("/{SKU}")
+    public ResponseEntity<List<String>> tools(@PathVariable String SKU) {
+        return ResponseEntity.status(HttpStatus.OK).body(db.getSku("superior", SKU));
+    }
+}
+
+@RestController
 @RequestMapping("/superior/images")
 class DataController {
 
@@ -67,6 +83,6 @@ class DataController {
 
     @GetMapping("/{SKU}")
     public ResponseEntity<List<String>> tools(@PathVariable String SKU) {
-        return ResponseEntity.status(HttpStatus.OK).body(db.getImages("milwaukee_assets", SKU));
+        return ResponseEntity.status(HttpStatus.OK).body(db.getImages(SKU));
     }
 }
