@@ -57,11 +57,11 @@ class SuperiorController {
 
 @RestController
 @RequestMapping("/superior/sku")
-class DataController {
+class SkuController {
 
     private final postgreSQL db;
 
-    public DataController(postgreSQL db) {
+    public SkuController(postgreSQL db) {
         this.db = db;
     }
 
@@ -73,11 +73,11 @@ class DataController {
 
 @RestController
 @RequestMapping("/superior/images")
-class DataController {
+class ImageController {
 
     private final postgreSQL db;
 
-    public DataController(postgreSQL db) {
+    public ImageController(postgreSQL db) {
         this.db = db;
     }
 
