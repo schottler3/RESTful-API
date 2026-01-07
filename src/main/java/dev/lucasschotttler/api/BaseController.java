@@ -7,8 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
 import dev.lucasschotttler.database.postgreSQL;
 
 @RestController
@@ -56,7 +56,7 @@ class SuperiorController {
 }
 
 @RestController
-@RequestMapping("/superior/sku")
+@RequestMapping("/superior/data")
 class SkuController {
 
     private final postgreSQL db;
@@ -65,9 +65,19 @@ class SkuController {
         this.db = db;
     }
 
-    @GetMapping("/{SKU}")
-    public ResponseEntity<List<String>> tools(@PathVariable String SKU) {
-        return ResponseEntity.status(HttpStatus.OK).body(db.getSku(SKU));
+    @GetMapping("/sku/limit")
+    public ResponseEntity<List<String>> toolsLimited(
+        @RequestParam(required = false) String SKU,
+        @RequestParam(required = false) Integer limit
+    ) {
+        if (SKU != null && limit != null)
+            return ResponseEntity.status(HttpStatus.OK).body(db.getData(SKU, limit));
+        else if (SKU != null)
+            return ResponseEntity.status(HttpStatus.OK).body(db.getData(SKU));
+        else if (limit != null)
+            return ResponseEntity.status(HttpStatus.OK).body(db.getData(limit));
+        else
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(List.of("Missing parameters"));
     }
 }
 
