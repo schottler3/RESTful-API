@@ -202,8 +202,15 @@ public class postgreSQL {
     }
 
     public List<String> getImages(String SKU) {
-        String sql = "SELECT web_api FROM milwaukee_assets WHERE filename LIKE ?";
+        String sql = "SELECT milwaukee_images FROM superior WHERE sku = ?";
         String pattern = "%" + SKU + "%";
         return jdbcTemplate.queryForList(sql, String.class, pattern);
     }
+
+    public List<String> getSomeSkus(String SKU, int limit) {
+        String sql = "SELECT sku FROM superior WHERE sku = ? LIMIT ?";
+        String pattern = "%" + SKU + "%";
+        return jdbcTemplate.queryForList(sql, String.class, pattern, limit);
+    }
+
 }
