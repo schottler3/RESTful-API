@@ -194,23 +194,28 @@ public class postgreSQL {
 
     return "Success";
 }
-    
-    public List<String> getSku(String SKU) {
+
+    public List<String> getData(String SKU) {
         String sql = "SELECT * FROM superior WHERE sku = ?";
         String pattern = "%" + SKU + "%";
         return jdbcTemplate.queryForList(sql, String.class, pattern);
+    }
+    
+    public List<String> getData(String SKU, int limit) {
+        String sql = "SELECT * FROM superior WHERE sku = ? LIMIT ?";
+        String pattern = "%" + SKU + "%";
+        return jdbcTemplate.queryForList(sql, String.class, pattern, limit);
+    }
+
+    public List<String> getData(int limit) {
+        String sql = "SELECT * FROM superior LIMIT ?";
+        return jdbcTemplate.queryForList(sql, String.class, limit);
     }
 
     public List<String> getImages(String SKU) {
         String sql = "SELECT milwaukee_images FROM superior WHERE sku = ?";
         String pattern = "%" + SKU + "%";
         return jdbcTemplate.queryForList(sql, String.class, pattern);
-    }
-
-    public List<String> getSomeSkus(String SKU, int limit) {
-        String sql = "SELECT sku FROM superior WHERE sku = ? LIMIT ?";
-        String pattern = "%" + SKU + "%";
-        return jdbcTemplate.queryForList(sql, String.class, pattern, limit);
     }
 
 }
