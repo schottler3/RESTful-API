@@ -11,6 +11,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import dev.lucasschotttler.database.postgreSQL;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @RestController
 public class BaseController {
 
@@ -60,24 +63,38 @@ class SuperiorController {
 class SkuController {
 
     private final postgreSQL db;
+    private static final Logger logger = LoggerFactory.getLogger(SkuController.class);
+
 
     public SkuController(postgreSQL db) {
         this.db = db;
     }
 
-    @GetMapping("/sku/limit")
-    public ResponseEntity<List<String>> toolsLimited(
+    @GetMapping({ "", "/" })
+    public ResponseEntity<?> dataRoot(
         @RequestParam(required = false) String SKU,
-        @RequestParam(required = false) Integer limit
+        @RequestParam(required = false) Integer limit,
+        @RequestParam(required = false) String keywords
     ) {
-        if (SKU != null && limit != null)
+        logger.info("Sku: " + SKU + " Limit: " + limit);
+
+        if (SKU != null && limit != null) {
             return ResponseEntity.status(HttpStatus.OK).body(db.getData(SKU, limit));
-        else if (SKU != null)
+        } 
+        else if (SKU != null) {
             return ResponseEntity.status(HttpStatus.OK).body(db.getData(SKU));
-        else if (limit != null)
+        } 
+        else if (limit != null) {
             return ResponseEntity.status(HttpStatus.OK).body(db.getData(limit));
-        else
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(List.of("Missing parameters"));
+        }
+        else if (keywords != null){
+            return ResponseEntity.status(HttpStatus.OK).body(db.queryDatabase(keywords));
+        }
+        else {
+            return ResponseEntity.ok("Data root endpoint. Use /sku/limit with SKU and/or limit query parameters.");
+        }
+
+
     }
 }
 
