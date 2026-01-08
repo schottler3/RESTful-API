@@ -195,25 +195,25 @@ public class postgreSQL {
     return "Success";
 }
 
-    public List<String> getData(String SKU) {
-        String sql = "SELECT * FROM superior WHERE sku = ?";
+    public List<java.util.Map<String, Object>> getData(String SKU) {
+        String sql = "SELECT * FROM superior WHERE sku LIKE ?";
         String pattern = "%" + SKU + "%";
-        return jdbcTemplate.queryForList(sql, String.class, pattern);
+        return jdbcTemplate.queryForList(sql, pattern);
     }
     
-    public List<String> getData(String SKU, int limit) {
-        String sql = "SELECT * FROM superior WHERE sku = ? LIMIT ?";
+    public List<java.util.Map<String, Object>> getData(String SKU, int limit) {
+        String sql = "SELECT * FROM superior WHERE sku LIKE ? LIMIT ?";
         String pattern = "%" + SKU + "%";
-        return jdbcTemplate.queryForList(sql, String.class, pattern, limit);
+        return jdbcTemplate.queryForList(sql, pattern, limit);
     }
 
-    public List<String> getData(int limit) {
+    public List<java.util.Map<String, Object>> getData(int limit) {
         String sql = "SELECT * FROM superior LIMIT ?";
-        return jdbcTemplate.queryForList(sql, String.class, limit);
+        return jdbcTemplate.queryForList(sql, limit);
     }
 
     public List<String> getImages(String SKU) {
-        String sql = "SELECT milwaukee_images FROM superior WHERE sku = ?";
+        String sql = "SELECT milwaukee_images FROM superior WHERE sku LIKE ?";
         String pattern = "%" + SKU + "%";
         return jdbcTemplate.queryForList(sql, String.class, pattern);
     }

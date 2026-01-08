@@ -16,8 +16,6 @@ logging:
   level:
     root: WARN
     dev.lucasschotttler: INFO
-  file:
-    name: logs/application.log
 server:
   error:
     include-message: never
