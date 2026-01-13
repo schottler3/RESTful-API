@@ -196,19 +196,19 @@ public class postgreSQL {
 }
 
     public List<java.util.Map<String, Object>> getData(String SKU) {
-        String sql = "SELECT * FROM superior WHERE sku LIKE ?";
+        String sql = "SELECT * FROM superior WHERE sku LIKE ? ORDER BY lakesid ASC";
         String pattern = "%" + SKU + "%";
         return jdbcTemplate.queryForList(sql, pattern);
     }
     
     public List<java.util.Map<String, Object>> getData(String SKU, int limit) {
-        String sql = "SELECT * FROM superior WHERE sku LIKE ? LIMIT ?";
+        String sql = "SELECT * FROM superior WHERE sku LIKE ? LIMIT ? ORDER BY lakesid ASC";
         String pattern = "%" + SKU + "%";
         return jdbcTemplate.queryForList(sql, pattern, limit);
     }
 
     public List<java.util.Map<String, Object>> getData(int limit) {
-        String sql = "SELECT * FROM superior LIMIT ?";
+        String sql = "SELECT * FROM superior LIMIT ? ORDER BY lakesid ASC";
         return jdbcTemplate.queryForList(sql, limit);
     }
 
@@ -228,7 +228,7 @@ public class postgreSQL {
                 " CAST(quantity AS TEXT) ILIKE ? OR" +
                 " sku ILIKE ? OR" +
                 " name ILIKE ? OR" +
-                " CAST(updated_at AS TEXT) ILIKE ?";
+                " CAST(updated_at AS TEXT) ILIKE ? ORDER BY lakesid ASC";
 
         String pattern = "%" + query + "%";
         Object[] params = new Object[14];

@@ -78,20 +78,29 @@ class SkuController {
     ) {
         logger.info("Sku: " + SKU + " Limit: " + limit);
 
+        ResponseEntity<Object> response = new ResponseEntity<>(null);
+
         if (SKU != null && limit != null) {
-            return ResponseEntity.status(HttpStatus.OK).body(db.getData(SKU, limit));
+            response = ResponseEntity.status(HttpStatus.OK).body(db.getData(SKU, limit));
         } 
         else if (SKU != null) {
-            return ResponseEntity.status(HttpStatus.OK).body(db.getData(SKU));
+            response = ResponseEntity.status(HttpStatus.OK).body(db.getData(SKU));
         } 
         else if (limit != null) {
-            return ResponseEntity.status(HttpStatus.OK).body(db.getData(limit));
+            response = ResponseEntity.status(HttpStatus.OK).body(db.getData(limit));
         }
         else if (keywords != null){
-            return ResponseEntity.status(HttpStatus.OK).body(db.queryDatabase(keywords));
+            response = ResponseEntity.status(HttpStatus.OK).body(db.queryDatabase(keywords));
         }
         else {
-            return ResponseEntity.ok("Data root endpoint. Use /sku/limit with SKU and/or limit query parameters.");
+            response = ResponseEntity.ok("Data root endpoint. Use /sku/limit with SKU and/or limit query parameters.");
+        }
+
+        if(response.getBody() != null && response.getBody().toString().length() > 0){
+            return response;
+        }
+        else{
+            return ResponseEntity.status(404).body("Not Found");
         }
 
 
