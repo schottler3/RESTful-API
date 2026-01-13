@@ -78,35 +78,21 @@ class SkuController {
     ) {
         logger.info("Sku: " + SKU + " Limit: " + limit);
 
-        ResponseEntity<Object> response = new ResponseEntity<>(null);
-
         if (SKU != null && limit != null) {
-            response = ResponseEntity.status(HttpStatus.OK).body(db.getData(SKU, limit));
+            return ResponseEntity.status(HttpStatus.OK).body(db.getData(SKU, limit));
         } 
-        else if (SKU != null) {
-            response = ResponseEntity.status(HttpStatus.OK).body(db.getData(SKU));
+        if (SKU != null) {
+            return ResponseEntity.status(HttpStatus.OK).body(db.getData(SKU));
         } 
-        else if (limit != null) {
-            response = ResponseEntity.status(HttpStatus.OK).body(db.getData(limit));
+        if (limit != null) {
+            return ResponseEntity.status(HttpStatus.OK).body(db.getData(limit));
         }
-        else if (keywords != null){
-            response = ResponseEntity.status(HttpStatus.OK).body(db.queryDatabase(keywords));
-        }
-        else {
-            response = ResponseEntity.ok("Data root endpoint. Use /sku/limit with SKU and/or limit query parameters.");
+        if (keywords != null) {
+            return ResponseEntity.status(HttpStatus.OK).body(db.queryDatabase(keywords));
         }
 
-        if (response.getBody() != null) {
-            String responseBody = response.getBody().toString();
-            if (!responseBody.isEmpty()) {
-                return response;
-            }
-        }
-        return ResponseEntity.status(404).body("Not Found");
-
-
+        return ResponseEntity.badRequest().body("Invalid request. Please provide valid query parameters.");
     }
-}
 
 @RestController
 @RequestMapping("/superior/images")
