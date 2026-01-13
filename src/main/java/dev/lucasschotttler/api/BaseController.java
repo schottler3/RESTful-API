@@ -73,19 +73,28 @@ class SkuController {
     @GetMapping({ "", "/" })
     public ResponseEntity<?> dataRoot(
         @RequestParam(required = false) String SKU,
-        @RequestParam(required = false) Integer limit
+        @RequestParam(required = false) Integer limit,
+        @RequestParam(required = false) String keywords
     ) {
         logger.info("Sku: " + SKU + " Limit: " + limit);
 
         if (SKU != null && limit != null) {
             return ResponseEntity.status(HttpStatus.OK).body(db.getData(SKU, limit));
-        } else if (SKU != null) {
+        } 
+        else if (SKU != null) {
             return ResponseEntity.status(HttpStatus.OK).body(db.getData(SKU));
-        } else if (limit != null) {
+        } 
+        else if (limit != null) {
             return ResponseEntity.status(HttpStatus.OK).body(db.getData(limit));
-        } else {
+        }
+        else if (keywords != null){
+            return ResponseEntity.status(HttpStatus.OK).body(db.queryDatabase(keywords));
+        }
+        else {
             return ResponseEntity.ok("Data root endpoint. Use /sku/limit with SKU and/or limit query parameters.");
         }
+
+
     }
 }
 

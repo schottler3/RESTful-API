@@ -212,6 +212,31 @@ public class postgreSQL {
         return jdbcTemplate.queryForList(sql, limit);
     }
 
+    public List<java.util.Map<String, Object>> queryDatabase(String query) {
+        
+        String sql = "SELECT * FROM superior WHERE" +
+                " CAST(lakesid AS TEXT) ILIKE ? OR" +
+                " CAST(width AS TEXT) ILIKE ? OR" +
+                " CAST(length AS TEXT) ILIKE ? OR" +
+                " CAST(height AS TEXT) ILIKE ? OR" +
+                " CAST(weight AS TEXT) ILIKE ? OR" +
+                " type ILIKE ? OR" +
+                " mpn ILIKE ? OR" +
+                " title ILIKE ? OR" +
+                " description ILIKE ? OR" +
+                " upc ILIKE ? OR" +
+                " CAST(quantity AS TEXT) ILIKE ? OR" +
+                " sku ILIKE ? OR" +
+                " name ILIKE ? OR" +
+                " CAST(updated_at AS TEXT) ILIKE ?";
+
+        String pattern = "%" + query + "%";
+        Object[] params = new Object[14];
+        Arrays.fill(params, pattern);
+
+        return jdbcTemplate.queryForList(sql, params);
+    }
+
     public List<String> getImages(String SKU) {
         String sql = "SELECT milwaukee_images FROM superior WHERE sku LIKE ?";
         String pattern = "%" + SKU + "%";
