@@ -17,8 +17,6 @@ CREATE TABLE IF NOT EXISTS superior (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- docker exec -i postgres-dev psql -U schottler3 -d superior < superior_schema.sql
-
 /*
     inventory_item_data = {
         "product": {
