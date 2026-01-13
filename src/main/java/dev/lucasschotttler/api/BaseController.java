@@ -96,12 +96,13 @@ class SkuController {
             response = ResponseEntity.ok("Data root endpoint. Use /sku/limit with SKU and/or limit query parameters.");
         }
 
-        if(response.getBody() != null && response.getBody().toString().length() > 0){
-            return response;
+        if (response.getBody() != null) {
+            String responseBody = response.getBody().toString();
+            if (!responseBody.isEmpty()) {
+                return response;
+            }
         }
-        else{
-            return ResponseEntity.status(404).body("Not Found");
-        }
+        return ResponseEntity.status(404).body("Not Found");
 
 
     }
