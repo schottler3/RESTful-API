@@ -194,26 +194,24 @@ public class postgreSQL {
 
     return "Success";
 }
-
-    public List<java.util.Map<String, Object>> getData(String SKU) {
-        String sql = "SELECT * FROM superior WHERE sku LIKE ? ORDER BY lakesid ASC";
-        String pattern = "%" + SKU + "%";
-        return jdbcTemplate.queryForList(sql, pattern);
-    }
     
     public List<java.util.Map<String, Object>> getData(String SKU, int limit) {
-        String sql = "SELECT * FROM superior WHERE sku LIKE ? LIMIT ? ORDER BY lakesid ASC";
+        String sql = "SELECT * FROM superior WHERE sku LIKE ? ORDER BY lakesid ASC LIMIT ?";
         String pattern = "%" + SKU + "%";
         return jdbcTemplate.queryForList(sql, pattern, limit);
     }
 
     public List<java.util.Map<String, Object>> getData(int limit) {
-        String sql = "SELECT * FROM superior LIMIT ? ORDER BY lakesid ASC";
+        String sql = "SELECT * FROM superior ORDER BY lakesid ASC LIMIT ?";
         return jdbcTemplate.queryForList(sql, limit);
     }
 
-    public List<java.util.Map<String, Object>> queryDatabase(String query) {
+    public List<java.util.Map<String, Object>> queryDatabase(String query, int limit) {
         
+        if (query == null || query.trim().isEmpty()) {
+            throw new IllegalArgumentException("Query cannot be empty");
+        }
+
         String sql = "SELECT * FROM superior WHERE" +
                 " CAST(lakesid AS TEXT) ILIKE ? OR" +
                 " CAST(width AS TEXT) ILIKE ? OR" +
@@ -228,11 +226,12 @@ public class postgreSQL {
                 " CAST(quantity AS TEXT) ILIKE ? OR" +
                 " sku ILIKE ? OR" +
                 " name ILIKE ? OR" +
-                " CAST(updated_at AS TEXT) ILIKE ? ORDER BY lakesid ASC";
+                " CAST(updated_at AS TEXT) ILIKE ? ORDER BY lakesid ASC LIMIT ?";
 
         String pattern = "%" + query + "%";
-        Object[] params = new Object[14];
-        Arrays.fill(params, pattern);
+        Object[] params = new Object[15];
+        Arrays.fill(params, 0, 14, pattern);
+        params[14] = limit;
 
         return jdbcTemplate.queryForList(sql, params);
     }

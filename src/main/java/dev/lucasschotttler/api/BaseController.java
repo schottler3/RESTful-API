@@ -76,23 +76,31 @@ class SkuController {
         @RequestParam(required = false) Integer limit,
         @RequestParam(required = false) String keywords
     ) {
-        logger.info("Sku: " + SKU + " Limit: " + limit);
+        logger.info("SKU: " + SKU + " Limit: " + limit + " Keywords: " + keywords);
 
-        if (SKU != null && limit != null) {
-            return ResponseEntity.status(HttpStatus.OK).body(db.getData(SKU, limit));
-        } 
-        if (SKU != null) {
-            return ResponseEntity.status(HttpStatus.OK).body(db.getData(SKU));
-        } 
-        if (limit != null) {
-            return ResponseEntity.status(HttpStatus.OK).body(db.getData(limit));
-        }
-        if (keywords != null) {
-            return ResponseEntity.status(HttpStatus.OK).body(db.queryDatabase(keywords));
-        }
+        int resultLimit = (limit != null) ? limit : 100;
 
-        return ResponseEntity.badRequest().body("Invalid request. Please provide valid query parameters.");
+        try {
+            if (SKU != null) {
+                return ResponseEntity.ok(db.queryDatabase(keywords, resultLimit));
+            } 
+            else if (keywords != null) {
+                return ResponseEntity.ok(db.getData(SKU, resultLimit));
+            }
+            else {
+                return ResponseEntity.badRequest()
+                    .body("{\"error\":\"Please provide SKU, keywords, or limit parameter\"}");
+            }
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                .body("{\"error\":\"" + e.getMessage() + "\"}");
+        } catch (Exception e) {
+            logger.error("Error processing request", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("{\"error\":\"Internal server error\"}");
+        }
     }
+}
 
 @RestController
 @RequestMapping("/superior/images")
