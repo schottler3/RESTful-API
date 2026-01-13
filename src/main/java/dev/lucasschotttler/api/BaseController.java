@@ -82,10 +82,10 @@ class SkuController {
 
         try {
             if (SKU != null) {
-                return ResponseEntity.ok(db.queryDatabase(keywords, resultLimit));
+                return ResponseEntity.ok(db.getData(SKU, resultLimit));
             } 
             else if (keywords != null) {
-                return ResponseEntity.ok(db.getData(SKU, resultLimit));
+                return ResponseEntity.ok(db.queryDatabase(keywords, resultLimit));
             }
             else {
                 return ResponseEntity.badRequest()
