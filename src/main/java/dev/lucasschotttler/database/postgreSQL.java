@@ -209,7 +209,7 @@ public class postgreSQL {
     public List<java.util.Map<String, Object>> queryDatabase(String query, int limit) {
         
         if (query == null || query.trim().isEmpty()) {
-            throw new IllegalArgumentException("Query cannot be empty");
+            return jdbcTemplate.queryForList("SELECT * FROM superior LIMIT ?", limit);
         }
 
         String sql = "SELECT * FROM superior WHERE" +
@@ -225,15 +225,21 @@ public class postgreSQL {
                 " upc ILIKE ? OR" +
                 " CAST(quantity AS TEXT) ILIKE ? OR" +
                 " sku ILIKE ? OR" +
-                " name ILIKE ? OR" +
                 " CAST(updated_at AS TEXT) ILIKE ? ORDER BY lakesid ASC LIMIT ?";
 
         String pattern = "%" + query + "%";
-        Object[] params = new Object[15];
-        Arrays.fill(params, 0, 14, pattern);
-        params[14] = limit;
+        Object[] params = new Object[14];
+        Arrays.fill(params, 0, 12, pattern);
+        params[12] = pattern;
+        params[13] = limit;
 
-        return jdbcTemplate.queryForList(sql, params);
+        List<java.util.Map<String, Object>> results = jdbcTemplate.queryForList(sql, params);
+        if(results.size() <= 0){
+            return null;
+        }
+        else{
+            return results;
+        }
     }
 
     public List<String> getImages(String SKU) {

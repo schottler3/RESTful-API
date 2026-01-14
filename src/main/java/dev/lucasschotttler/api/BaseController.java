@@ -76,26 +76,34 @@ class SkuController {
         @RequestParam(required = false) Integer limit,
         @RequestParam(required = false) String keywords
     ) {
-        logger.info("SKU: " + SKU + " Limit: " + limit + " Keywords: " + keywords);
+        logger.info("Received request - SKU: " + SKU + ", Limit: " + limit + ", Keywords: " + keywords);
 
         int resultLimit = (limit != null) ? limit : 100;
+        List<java.util.Map<String, Object>> results;
 
         try {
             if (SKU != null) {
-                return ResponseEntity.ok(db.getData(SKU, resultLimit));
+                logger.info("Fetching data by SKU...");
+                results = db.getData(SKU, resultLimit);
             } 
-            else if (keywords != null) {
-                return ResponseEntity.ok(db.queryDatabase(keywords, resultLimit));
-            }
             else {
-                return ResponseEntity.badRequest()
-                    .body("{\"error\":\"Please provide SKU, keywords, or limit parameter\"}");
+                logger.info("Fetching data by keywords...");
+                results = db.queryDatabase(keywords, resultLimit);
+            }
+
+            if (results != null && results.size() > 0) {
+                logger.info("Data fetched successfully. Returning results.");
+                return ResponseEntity.ok(results);
+            } else {
+                logger.warn("No data found for the given parameters.");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("404: Not Found");
             }
         } catch (IllegalArgumentException e) {
+            logger.error("Invalid argument: " + e.getMessage(), e);
             return ResponseEntity.badRequest()
                 .body("{\"error\":\"" + e.getMessage() + "\"}");
         } catch (Exception e) {
-            logger.error("Error processing request", e);
+            logger.error("Unexpected error occurred", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body("{\"error\":\"Internal server error\"}");
         }
