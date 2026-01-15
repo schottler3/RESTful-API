@@ -13,8 +13,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import dev.lucasschotttler.database.postgreSQL;
 
+import org.apache.catalina.connector.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,7 +73,6 @@ class SkuController {
     private final postgreSQL db;
     private static final Logger logger = LoggerFactory.getLogger(SkuController.class);
 
-
     public SkuController(postgreSQL db) {
         this.db = db;
     }
@@ -114,16 +117,45 @@ class SkuController {
     }
 
     @PatchMapping({"", "/"})
-    public ResponseEntity<?> patchRoot(@RequestBody(required = true) Map<String, Object> requestBody) {
+    public ResponseEntity<?> patchRoot(@RequestBody(required = true) List<Map<String, Object>> requestBody) {
         if (requestBody == null || requestBody.isEmpty()) {
-            return ResponseEntity.badRequest().body("{\"error\":\"Request body is missing or empty\"}");
+            return ResponseEntity.badRequest().body(Map.of("error", "Request body is missing or empty"));
         }
 
-        logger.info("Received PATCH request with body: " + requestBody);
+        logger.info("Received PATCH request with {} changes", requestBody.size());
+
+        List<Map<String, Object>> failures = new java.util.ArrayList<>();
 
         try {
+            // Process each change
+            for (int i = 0; i < requestBody.size(); i++) {
+                Map<String, Object> change = requestBody.get(i);
+                Integer lakesid = (Integer) change.get("lakesid");
+                String attribute = (String) change.get("attribute");
+                String newValue = (String) change.get("new");
+
+                if (lakesid == null || attribute == null || newValue == null) {
+                    logger.warn("Missing required fields in patch: " + i);
+                    failures.add(change);
+                    continue;
+                }
+                
+                logger.info("Attempt on Change - lakesid: {}, attribute: {}, new: {}", lakesid, attribute, newValue);
+                if(db.patchItem(lakesid, attribute, newValue)){
+                    logger.info("Success on Change: lakesid: {}, attribute: {}, new: {}", lakesid, attribute, newValue);
+                }
+                else{
+                    logger.error("Failure on Change: lakesid: {}, attribute: {}, new: {}", lakesid, attribute, newValue);
+                    failures.add(change);
+                }
+            }
             
-            return ResponseEntity.ok("{\"message\":\"Patch request processed successfully\"}");
+            if(failures.isEmpty()){
+                return ResponseEntity.ok(Map.of("message", "All patches processed successfully"));
+            }
+            else{
+                return ResponseEntity.status(HttpStatus.MULTI_STATUS).body(failures);
+            }
         } catch (Exception e) {
             logger.error("Error processing PATCH request", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

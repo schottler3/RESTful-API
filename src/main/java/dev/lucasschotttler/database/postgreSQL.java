@@ -242,6 +242,13 @@ public class postgreSQL {
         }
     }
 
+    public boolean patchItem(Integer lakesid, String attribute, String data){
+
+        
+
+        return true;
+    }
+
     public List<String> getImages(String SKU) {
         String sql = "SELECT milwaukee_images FROM superior WHERE sku LIKE ?";
         String pattern = "%" + SKU + "%";
