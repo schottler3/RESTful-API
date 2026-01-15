@@ -16,9 +16,14 @@ import dev.lucasschotttler.lakesAPI.Lakes.Item;
 import dev.lucasschotttler.lakesAPI.Lakes.LakesReturn;
 import tools.jackson.databind.ObjectMapper;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Repository
 public class postgreSQL {
-    
+
+    private static final Logger logger = LoggerFactory.getLogger(postgreSQL.class);
+
     private final JdbcTemplate jdbcTemplate;
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -242,11 +247,22 @@ public class postgreSQL {
         }
     }
 
-    public boolean patchItem(Integer lakesid, String attribute, String data){
-
-        
-
-        return true;
+    public boolean patchItem(Integer lakesid, String attribute, String data) {
+        try{
+            List<String> allowedAttributes = List.of("sku", "title", "description", "quantity", "mpn", "upc", "type", "length", "width", "height", "weight");
+            
+            if (!allowedAttributes.contains(attribute)) {
+                throw new IllegalArgumentException("Invalid attribute: " + attribute);
+            }
+            
+            String sql = "UPDATE superior SET " + attribute + " = ?, updated_at = CURRENT_TIMESTAMP WHERE lakesid = ?";
+            
+            int rowsAffected = jdbcTemplate.update(sql, data, lakesid);
+            return rowsAffected > 0;
+        } catch (IllegalArgumentException e) {
+            logger.error("Illegal Attribute Passed: {}", attribute);
+            return false;
+        }
     }
 
     public List<String> getImages(String SKU) {
