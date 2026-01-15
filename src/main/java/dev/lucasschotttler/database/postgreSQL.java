@@ -7,6 +7,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -22,7 +23,7 @@ import org.slf4j.LoggerFactory;
 @Repository
 public class postgreSQL {
 
-    private static final Logger logger = LoggerFactory.getLogger(postgreSQL.class);
+    private static final Logger logger = LoggerFactory.getLogger(postgreSQL.class);    
 
     private final JdbcTemplate jdbcTemplate;
     private final HttpClient httpClient = HttpClient.newHttpClient();
@@ -201,14 +202,13 @@ public class postgreSQL {
 }
     
     public List<java.util.Map<String, Object>> getData(String SKU, int limit) {
+        if (SKU == null || SKU.trim().isEmpty()) {
+            String sql = "SELECT * FROM superior ORDER BY lakesid ASC LIMIT ?";
+            return jdbcTemplate.queryForList(sql, limit);
+        }
         String sql = "SELECT * FROM superior WHERE sku LIKE ? ORDER BY lakesid ASC LIMIT ?";
         String pattern = "%" + SKU + "%";
         return jdbcTemplate.queryForList(sql, pattern, limit);
-    }
-
-    public List<java.util.Map<String, Object>> getData(int limit) {
-        String sql = "SELECT * FROM superior ORDER BY lakesid ASC LIMIT ?";
-        return jdbcTemplate.queryForList(sql, limit);
     }
 
     public List<java.util.Map<String, Object>> queryDatabase(String query, int limit) {
@@ -248,19 +248,36 @@ public class postgreSQL {
     }
 
     public boolean patchItem(Integer lakesid, String attribute, String data) {
-        try{
-            List<String> allowedAttributes = List.of("sku", "title", "description", "quantity", "mpn", "upc", "type", "length", "width", "height", "weight");
+        Set<String> numericColumns = Set.of("width", "length", "height", "weight", "quantity", "lakesid");
+        Set<String> allowedColumns = Set.of(
+            "width", "length", "height", "weight", "type", "mpn", "title", 
+            "description", "upc", "brand", "quantity", "sku", "name"
+        );
+        
+        if (!allowedColumns.contains(attribute)) {
+            logger.warn("Invalid attribute: {}", attribute);
+            return false;
+        }
+        
+        String sql = "UPDATE superior SET " + attribute + " = ?, updated_at = CURRENT_TIMESTAMP WHERE lakesid = ?";
+        
+        try {
+            int rowsAffected;
             
-            if (!allowedAttributes.contains(attribute)) {
-                throw new IllegalArgumentException("Invalid attribute: " + attribute);
+            if (numericColumns.contains(attribute)) {
+                if (attribute.equals("quantity") || attribute.equals("lakesid")) {
+                    rowsAffected = jdbcTemplate.update(sql, Integer.parseInt(data), lakesid);
+                } else {
+                    rowsAffected = jdbcTemplate.update(sql, Double.parseDouble(data), lakesid);
+                }
+            } else {
+                rowsAffected = jdbcTemplate.update(sql, data, lakesid);
             }
             
-            String sql = "UPDATE superior SET " + attribute + " = ?, updated_at = CURRENT_TIMESTAMP WHERE lakesid = ?";
-            
-            int rowsAffected = jdbcTemplate.update(sql, data, lakesid);
             return rowsAffected > 0;
-        } catch (IllegalArgumentException e) {
-            logger.error("Illegal Attribute Passed: {}", attribute);
+            
+        } catch (NumberFormatException e) {
+            logger.error("Invalid number format for attribute {}: {}", attribute, data);
             return false;
         }
     }
