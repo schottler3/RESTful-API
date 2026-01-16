@@ -1,4 +1,4 @@
-package dev.lucasschotttler.api.security;
+/*package dev.lucasschotttler.api.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -30,3 +30,4 @@ public class ApiKeyFilter extends OncePerRequestFilter {
         }
     }
 }
+    */

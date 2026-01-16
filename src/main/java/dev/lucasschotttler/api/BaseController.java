@@ -14,11 +14,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.lucasschotttler.database.Databasing;
+import dev.lucasschotttler.update.Lakes;
 
-import dev.lucasschotttler.database.postgreSQL;
-
-import org.apache.catalina.connector.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,22 +40,24 @@ public class BaseController {
 @RequestMapping("/superior")
 class SuperiorController {
 
-    private final postgreSQL db;
+    private final Databasing db;
+    private final Actions actions;
+    private static final Logger logger = LoggerFactory.getLogger(SkuController.class);
 
-    public SuperiorController(postgreSQL db) {
+    public SuperiorController(Databasing db, Actions actions) {
         this.db = db;
+        this.actions = actions;
     }
 
     @GetMapping("/update")
     public ResponseEntity<String> update() {
         try {
-            return ResponseEntity.status(HttpStatus.OK).body(db.createEntries());
-        } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error during update: " + e.getMessage());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Update interrupted: " + e.getMessage());
+            actions.updateInventory();
+            return ResponseEntity.ok("Inventory updated successfully");
+        } catch (Exception e){
+            logger.error("This shouldn't be possible atm");
         }
+        return null;
     }
 
     @GetMapping("/health")
@@ -67,13 +67,37 @@ class SuperiorController {
 }
 
 @RestController
+@RequestMapping("/superior/lakes")
+class LakesController {
+
+    private static final Logger logger = LoggerFactory.getLogger(SkuController.class);
+    private final Lakes lakes;
+
+
+    public LakesController(Lakes lakes) {
+        this.lakes = lakes;
+    }
+
+    @GetMapping({ "", "/" })
+    public ResponseEntity<?> lakesEnd(
+        @RequestParam(required = true) int id
+    ) {
+        logger.info("Received request - {}: ", id);
+
+        System.out.println(Lakes.getLakesItem(id));
+        
+        return null;
+    }
+}
+
+@RestController
 @RequestMapping("/superior/data")
 class SkuController {
 
-    private final postgreSQL db;
+    private final Databasing db;
     private static final Logger logger = LoggerFactory.getLogger(SkuController.class);
 
-    public SkuController(postgreSQL db) {
+    public SkuController(Databasing db) {
         this.db = db;
     }
 
@@ -169,9 +193,9 @@ class SkuController {
 @RequestMapping("/superior/images")
 class ImageController {
 
-    private final postgreSQL db;
+    private final Databasing db;
 
-    public ImageController(postgreSQL db) {
+    public ImageController(Databasing db) {
         this.db = db;
     }
 

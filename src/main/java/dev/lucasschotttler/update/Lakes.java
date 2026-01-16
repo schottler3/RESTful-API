@@ -1,34 +1,25 @@
-package dev.lucasschotttler.database;
+package dev.lucasschotttler.update;
 
-import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
-
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Repository;
-
-import dev.lucasschotttler.lakesAPI.Lakes;
-import dev.lucasschotttler.lakesAPI.Lakes.Item;
-import dev.lucasschotttler.lakesAPI.Lakes.LakesReturn;
-import tools.jackson.databind.ObjectMapper;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Repository
-public class postgreSQL {
+import org.springframework.stereotype.Component;
 
-    private static final Logger logger = LoggerFactory.getLogger(postgreSQL.class);    
+@Component
+public class Lakes {
+    
+    private static final Logger logger = LoggerFactory.getLogger(Ebay.class);
+    private static final String ITEMLINK = "https://swymstore-v3pro-01.swymrelay.com/api/v2/provider/getPlatformProducts?pid=jn9XxHMVJRoc160vy%2BI3OVpfL8Wq3P19N1qklE2GjTk%3D";
+    private static final String APILINK = "https://searchserverapi1.com/getresults?api_key=4O3Y4Q0o6o";
 
-    private final JdbcTemplate jdbcTemplate;
-    private final HttpClient httpClient = HttpClient.newHttpClient();
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
+    // #region TOOL_NAMES
     private static final List<String> TOOL_NAMES = Arrays.asList(
         "drill bit", "hammer", "ruler", "rule", "auger", "wrench", "grease", "flange",
         "head kit", "grinding guard", "die", "tip kit", "bit", "wheel", "blade", "tpi",
@@ -110,9 +101,23 @@ public class postgreSQL {
         "led", "latch", "inkzall", "nose", "pan", "dust shield", "rubber cushion", "flat wash",
         "anniversary", "drill"
     );
-      
-    public postgreSQL(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    // #endregion
+
+    public static class LakesItem {
+        public int lakesid;
+        public String title;
+        public String description;
+        public double price;
+        public String imageLink;
+        public int quantity;
+        public String upc;
+        public String mpn;
+        public String sku;
+        public double length;
+        public double width;
+        public double height;
+        public double weight;
+        public String type;
     }
 
     public String getToolType(String title) {
@@ -131,161 +136,32 @@ public class postgreSQL {
         
         return longestTool;
     }
-    
-    public String createEntries() throws IOException, InterruptedException{
-    int startIndex = 0;
-    int numItems = 100000;
-    Lakes lakes = new Lakes(); // Create Lakes instance once
 
-    while (startIndex < numItems) {
-        String linkPage = Lakes.getLakesAPILink() + "&startIndex=" + startIndex + "&maxResults=250&items=true&pages=true&categories=true";
-        startIndex += 250;
-        
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(linkPage))
-            .GET()
-            .build();
-        
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        LakesReturn data = objectMapper.readValue(response.body(), LakesReturn.class);
-        
-        List<Item> items = data.getItems();
-        numItems = data.getTotalItems();
-        
-        for (Item item : items) {
-            Integer lakesId = Integer.parseInt(item.getProduct_id());
-            
-            String checkSql = "SELECT COUNT(*) FROM superior WHERE lakesid = ?";
-            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class, lakesId);
-            
-            if (count != null && count > 0) {
-                continue;
-            }
-            
-            Item detailedItem = lakes.getLakesItem(item.getProduct_id());
-            
-            if (detailedItem == null) {
-                continue;
-            }
-            
-            // Skip items without SKU (required field)
-            if (detailedItem.getSku() == null || detailedItem.getSku().trim().isEmpty()) {
-                System.out.println("Skipping item " + lakesId + " - missing SKU");
-                continue;
-            }
-            
-            String toolType = getToolType(detailedItem.getTitle());
-            
-            String sql = "INSERT INTO superior (lakesid, width, length, height, weight, type, mpn, title, description, upc, brand, quantity, sku, name, updated_at) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)";
-
-            jdbcTemplate.update(sql,
-                lakesId,
-                detailedItem.getWidth(),
-                detailedItem.getLength(),
-                detailedItem.getHeight(),
-                detailedItem.getWeight(),
-                toolType,
-                detailedItem.getProduct_code(),
-                detailedItem.getTitle(),
-                detailedItem.getDescription(),
-                detailedItem.getUpc(),
-                detailedItem.getBrand(),
-                detailedItem.getQuantity() != null ? detailedItem.getQuantity() : 0,
-                detailedItem.getSku(),
-                detailedItem.getName()
-            );
-        }
-    }
-
-    return "Success";
-}
-    
-    public List<java.util.Map<String, Object>> getData(String SKU, int limit) {
-        if (SKU == null || SKU.trim().isEmpty()) {
-            String sql = "SELECT * FROM superior ORDER BY lakesid ASC LIMIT ?";
-            return jdbcTemplate.queryForList(sql, limit);
-        }
-        String sql = "SELECT * FROM superior WHERE sku LIKE ? ORDER BY lakesid ASC LIMIT ?";
-        String pattern = "%" + SKU + "%";
-        return jdbcTemplate.queryForList(sql, pattern, limit);
-    }
-
-    public List<java.util.Map<String, Object>> queryDatabase(String query, int limit) {
-        
-        if (query == null || query.trim().isEmpty()) {
-            return jdbcTemplate.queryForList("SELECT * FROM superior LIMIT ?", limit);
-        }
-
-        String sql = "SELECT * FROM superior WHERE" +
-                " CAST(lakesid AS TEXT) ILIKE ? OR" +
-                " CAST(width AS TEXT) ILIKE ? OR" +
-                " CAST(length AS TEXT) ILIKE ? OR" +
-                " CAST(height AS TEXT) ILIKE ? OR" +
-                " CAST(weight AS TEXT) ILIKE ? OR" +
-                " type ILIKE ? OR" +
-                " mpn ILIKE ? OR" +
-                " title ILIKE ? OR" +
-                " description ILIKE ? OR" +
-                " upc ILIKE ? OR" +
-                " CAST(quantity AS TEXT) ILIKE ? OR" +
-                " sku ILIKE ? OR" +
-                " CAST(updated_at AS TEXT) ILIKE ? ORDER BY lakesid ASC LIMIT ?";
-
-        String pattern = "%" + query + "%";
-        Object[] params = new Object[14];
-        Arrays.fill(params, 0, 12, pattern);
-        params[12] = pattern;
-        params[13] = limit;
-
-        List<java.util.Map<String, Object>> results = jdbcTemplate.queryForList(sql, params);
-        if(results.size() <= 0){
-            return null;
-        }
-        else{
-            return results;
-        }
-    }
-
-    public boolean patchItem(Integer lakesid, String attribute, String data) {
-        Set<String> numericColumns = Set.of("width", "length", "height", "weight", "quantity", "lakesid");
-        Set<String> allowedColumns = Set.of(
-            "width", "length", "height", "weight", "type", "mpn", "title", 
-            "description", "upc", "brand", "quantity", "sku", "name"
-        );
-        
-        if (!allowedColumns.contains(attribute)) {
-            logger.warn("Invalid attribute: {}", attribute);
-            return false;
-        }
-        
-        String sql = "UPDATE superior SET " + attribute + " = ?, updated_at = CURRENT_TIMESTAMP WHERE lakesid = ?";
-        
+    public static LakesItem getLakesItem(int id) {
         try {
-            int rowsAffected;
-            
-            if (numericColumns.contains(attribute)) {
-                if (attribute.equals("quantity") || attribute.equals("lakesid")) {
-                    rowsAffected = jdbcTemplate.update(sql, Integer.parseInt(data), lakesid);
-                } else {
-                    rowsAffected = jdbcTemplate.update(sql, Double.parseDouble(data), lakesid);
-                }
-            } else {
-                rowsAffected = jdbcTemplate.update(sql, data, lakesid);
-            }
-            
-            return rowsAffected > 0;
-            
-        } catch (NumberFormatException e) {
-            logger.error("Invalid number format for attribute {}: {}", attribute, data);
-            return false;
+            String payload = "productids=%5B" + id + "%5D&regid=JXNnJGEEgrP63HI0SQEsMlT-lqGvpin-gs-TMt4v7KZNhXb8BXV3AGU9VvweaaoRkXWjtvc25shVAKa5Zb5MaI2GlIuSXzYIpfEQ-l87Y2qaaVGq2dRdEzHBjvkTweZeZjjfPDycP_6LDolPIapsKuHskOVMaGSnI_JsLF20Py8&sessionid=qtwf2nkbfh6bbs8f9c4u8ux434l4vhnlb34okc9a675gabmmigagcv6ojyu8ou04";
+
+            HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                .uri(URI.create(ITEMLINK))
+                .POST(HttpRequest.BodyPublishers.ofString(payload))
+                .headers(
+                    "Content-Type", "application/x-www-form-urlencoded",
+                    "Accept", "application/json",
+                    "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                );
+
+            HttpRequest request = requestBuilder.build();
+
+            HttpClient client = HttpClient.newHttpClient();
+            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+            logger.info("Response status: " + response.statusCode());
+            logger.info("Response body: " + response.body());
+
+            return null;
+        } catch (Exception e) {
+            logger.error("Error during POST request", e);
         }
+        return null;
     }
-
-    public List<String> getImages(String SKU) {
-        String sql = "SELECT milwaukee_images FROM superior WHERE sku LIKE ?";
-        String pattern = "%" + SKU + "%";
-        return jdbcTemplate.queryForList(sql, String.class, pattern);
-    }
-
 }
