@@ -55,7 +55,7 @@ public class Actions {
             dbItem.maximum_price = (double) item.get("maximum_price");
             dbItem.lakes_price = (double) item.get("lakes_price");
 
-            final LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
+            final LakesItem lakesItem = Lakes.getLakesItem(dbItem.lakesid);
             
             if(lakesItem.quantity != dbItem.quantity){
                 logger.info("Quantity Updated: {} -> {}", dbItem.quantity, lakesItem.quantity);
