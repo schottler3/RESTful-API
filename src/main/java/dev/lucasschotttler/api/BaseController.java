@@ -14,8 +14,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import dev.lucasschotttler.database.DatabaseItem;
 import dev.lucasschotttler.database.Databasing;
-import dev.lucasschotttler.update.Lakes;
+import dev.lucasschotttler.lakes.Lakes;
+import dev.lucasschotttler.lakes.LakesItem;
+import dev.lucasschotttler.update.Ebay;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,11 +74,10 @@ class SuperiorController {
 class LakesController {
 
     private static final Logger logger = LoggerFactory.getLogger(SkuController.class);
-    private final Lakes lakes;
+    private final Databasing db;
 
-
-    public LakesController(Lakes lakes) {
-        this.lakes = lakes;
+    public LakesController(Databasing db) {
+        this.db = db;
     }
 
     @GetMapping({ "", "/" })
@@ -84,8 +86,18 @@ class LakesController {
     ) {
         logger.info("Received request - {}: ", id);
 
-        System.out.println(Lakes.getLakesItem(id));
+        Map<String, Object> item = db.queryDatabase("", 1).get(0);
+
+        DatabaseItem dbItem = new DatabaseItem(item);
+
+        LakesItem lakesItem = Lakes.getLakesItem(dbItem.lakesid);
         
+        dbItem.updateItem(lakesItem);
+
+        //System.out.println(dbItem);
+
+        Ebay.createOrUpdateItem(dbItem);
+    
         return null;
     }
 }

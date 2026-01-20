@@ -21,36 +21,6 @@ import org.slf4j.LoggerFactory;
 @Service
 public class Databasing {
 
-    public class DatabaseItem {
-
-        public int lakesid;
-        public double width;
-        public double length;
-        public double height;
-        public double weight;
-        public String type;
-        public String mpn;
-        public String title;
-        public String description;
-        public String upc;
-        public int quantity;
-        public String sku;
-        public Date updated_at;
-        public String milwaukee_images;
-        public double package_width;
-        public double package_length;
-        public double package_height;
-        public double package_weight;
-        public String custom_description;
-        public String lakes_images;
-        public double minimum_price;
-        public double calculated_price;
-        public double maximum_price;
-        public double lakes_price;
-
-        public DatabaseItem(){}
-    }
-
     private static final Logger logger = LoggerFactory.getLogger(Databasing.class);    
 
     private final JdbcTemplate jdbcTemplate;

@@ -1,4 +1,4 @@
-package dev.lucasschotttler.update;
+package dev.lucasschotttler.lakes;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -10,9 +10,11 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
-@Component
+import dev.lucasschotttler.update.Ebay;
+
+@Service
 public class Lakes {
     
     private static final Logger logger = LoggerFactory.getLogger(Ebay.class);
@@ -103,24 +105,7 @@ public class Lakes {
     );
     // #endregion
 
-    public static class LakesItem {
-        public int lakesid;
-        public String title;
-        public String description;
-        public double price;
-        public String imageLink;
-        public int quantity;
-        public String upc;
-        public String mpn;
-        public String sku;
-        public double length;
-        public double width;
-        public double height;
-        public double weight;
-        public String type;
-    }
-
-    public String getToolType(String title) {
+    public static String getToolType(String title) {
         if (title == null) return "";
         
         String lowerTitle = title.toLowerCase();
@@ -158,7 +143,9 @@ public class Lakes {
             logger.info("Response status: " + response.statusCode());
             logger.info("Response body: " + response.body());
 
-            return null;
+            LakesItem lakesItem = new LakesItem(response.body());
+
+            return lakesItem;
         } catch (Exception e) {
             logger.error("Error during POST request", e);
         }
