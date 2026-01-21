@@ -71,7 +71,6 @@ public class Ebay {
                     response.body(),
                     new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}
                 );
-                String newAccessToken = (String) tokenData.get("access_token");
                 
                 logger.info("✅ Token refreshed successfully");
                 logger.info("Full response: {}", response.body());
@@ -254,7 +253,7 @@ public class Ebay {
         return null;
     }
 
-    public static boolean updateOffer(DatabaseItem dbItem){
+    public static boolean updateItem(DatabaseItem dbItem){
 
         // Get fresh token
         Map<String, Object> tokenData = ebayService.getRefreshToken();
@@ -296,6 +295,7 @@ public class Ebay {
 
         if(!ebayService.doRequest(inventoryRequest, dbItem.sku)){
             logger.error("Returned to updateOffer in error state. SKU: {}", dbItem.sku);
+            return false;
         }
 
         logger.info("Success updateOffer 1/2. SKU: {}", dbItem.sku);
@@ -324,9 +324,10 @@ public class Ebay {
 
         if(!ebayService.doRequest(offerRequest, dbItem.sku)){
             logger.error("Returned to updateOffer in error state. SKU: {}", dbItem.sku);
+            return false;
         }
 
-        logger.info("Success updateOffer 1/2. SKU: {}", dbItem.sku);
+        logger.info("Success updateOffer 2/2. SKU: {}", dbItem.sku);
 
         return true;
     }

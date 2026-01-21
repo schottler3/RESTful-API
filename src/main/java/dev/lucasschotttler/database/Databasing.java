@@ -1,19 +1,11 @@
 package dev.lucasschotttler.database;
 
-import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.sql.Date;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-
-import tools.jackson.databind.ObjectMapper;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,9 +15,32 @@ public class Databasing {
 
     private static final Logger logger = LoggerFactory.getLogger(Databasing.class);    
 
+    private final Set<String> integerColumns = Set.of("lakesid", "quantity", "custom_quantity", "fulfillment");
+
+    private final Set<String> doubleColumns = Set.of(
+        "width", "length", "height", "weight",
+        "package_width", "package_length", "package_height", "package_weight",
+        "minimum_price", "calculated_price", "maximum_price", "lakes_price", "custom_price"
+    );
+
+    private final Set<String> stringColumns = Set.of(
+        "type", "mpn", "title", "description", "upc", "sku",
+        "milwaukee_images", "custom_description", "lakes_images"
+    );
+
+    private final Set<String> allowedColumns = Set.of(
+        // Integer columns
+        "lakesid", "quantity", "custom_quantity", "fulfillment",
+        // Double columns
+        "width", "length", "height", "weight",
+        "package_width", "package_length", "package_height", "package_weight",
+        "minimum_price", "calculated_price", "maximum_price", "lakes_price", "custom_price",
+        // String columns
+        "type", "mpn", "title", "description", "upc", "sku",
+        "milwaukee_images", "custom_description", "lakes_images"
+    );
+
     private final JdbcTemplate jdbcTemplate;
-    private final HttpClient httpClient = HttpClient.newHttpClient();
-    private final ObjectMapper objectMapper = new ObjectMapper();
       
     public Databasing(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
@@ -44,7 +59,7 @@ public class Databasing {
     public List<java.util.Map<String, Object>> queryDatabase(String query, int limit) {
         
         if (query == null || query.trim().isEmpty()) {
-            return jdbcTemplate.queryForList("SELECT * FROM superior LIMIT ?", limit);
+            return jdbcTemplate.queryForList("SELECT * FROM superior ORDER BY lakesid ASC LIMIT ?", limit);
         }
 
         String sql = "SELECT * FROM superior WHERE" +
@@ -78,11 +93,6 @@ public class Databasing {
     }
 
     public boolean patchItem(Integer lakesid, String attribute, String data) {
-        Set<String> numericColumns = Set.of("width", "length", "height", "weight", "quantity", "lakesid");
-        Set<String> allowedColumns = Set.of(
-            "width", "length", "height", "weight", "type", "mpn", "title", 
-            "description", "upc", "brand", "quantity", "sku", "name"
-        );
         
         if (!allowedColumns.contains(attribute)) {
             logger.warn("Invalid attribute: {}", attribute);
@@ -90,16 +100,15 @@ public class Databasing {
         }
         
         String sql = "UPDATE superior SET " + attribute + " = ?, updated_at = CURRENT_TIMESTAMP WHERE lakesid = ?";
+        logger.info("DEBUG - SQL: {}", sql);
         
         try {
             int rowsAffected;
             
-            if (numericColumns.contains(attribute)) {
-                if (attribute.equals("quantity") || attribute.equals("lakesid")) {
-                    rowsAffected = jdbcTemplate.update(sql, Integer.parseInt(data), lakesid);
-                } else {
-                    rowsAffected = jdbcTemplate.update(sql, Double.parseDouble(data), lakesid);
-                }
+            if (integerColumns.contains(attribute)) {
+                rowsAffected = jdbcTemplate.update(sql, Integer.parseInt(data), lakesid);
+            } else if (doubleColumns.contains(attribute)) {
+                rowsAffected = jdbcTemplate.update(sql, Double.parseDouble(data), lakesid);
             } else {
                 rowsAffected = jdbcTemplate.update(sql, data, lakesid);
             }
@@ -109,6 +118,9 @@ public class Databasing {
         } catch (NumberFormatException e) {
             logger.error("Invalid number format for attribute {}: {}", attribute, data);
             return false;
+        } catch (Exception e) {
+            logger.error("Error updating attribute {}: {}", attribute, e.getMessage(), e);
+            return false;
         }
     }
 
@@ -117,5 +129,4 @@ public class Databasing {
         String pattern = "%" + SKU + "%";
         return jdbcTemplate.queryForList(sql, String.class, pattern);
     }
-
 }

@@ -86,17 +86,18 @@ class LakesController {
     ) {
         logger.info("Received request - {}: ", id);
 
-        Map<String, Object> item = db.queryDatabase("", 1).get(0);
+        List<Map<String, Object>> items = db.queryDatabase(String.valueOf(id), 1);
+        Map<String, Object> item = items.get(0);
 
         DatabaseItem dbItem = new DatabaseItem(item);
 
         LakesItem lakesItem = Lakes.getLakesItem(dbItem.lakesid);
         
-        dbItem.updateItem(lakesItem);
+        dbItem.updateItem(lakesItem, db);
 
         //System.out.println(dbItem);
 
-        Ebay.createOrUpdateItem(dbItem);
+        //Ebay.updateItem(dbItem);
     
         return null;
     }

@@ -30,7 +30,7 @@ public class Actions {
 
             LakesItem lakesItem = Lakes.getLakesItem(dbItem.lakesid);
             
-            dbItem.updateItem(lakesItem);
+            dbItem.updateItem(lakesItem, db);
 
 
             

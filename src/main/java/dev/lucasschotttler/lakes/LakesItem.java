@@ -4,8 +4,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class LakesItem {
+    public int productId;
+    public String productCode;
     public int quantity;
     public double price;
+    public double regularPrice;
+    public double salePrice;
     public double width;
     public double length;
     public double height;
@@ -23,23 +27,37 @@ public class LakesItem {
             ObjectMapper mapper = new ObjectMapper();
             JsonNode root = mapper.readTree(json);
 
-            JsonNode item = root.has("data") ? root.get("data").get(0) : root;
+            JsonNode firstElement = root.isArray() && root.size() > 0 ? root.get(0) : root;
+            JsonNode productData = firstElement.get("productdata");
 
-            this.quantity = item.has("quantity") ? item.get("quantity").asInt() : 0;
-            this.price = item.has("price") ? item.get("price").asDouble() : 999.99;
-            this.width = item.has("width") ? item.get("width").asDouble() : 0.0;
-            this.length = item.has("length") ? item.get("length").asDouble() : 0.0;
-            this.height = item.has("height") ? item.get("height").asDouble() : 0.0;
-            this.weight = item.has("weight") ? item.get("weight").asDouble() : 0.0;
-            this.type = item.has("type") ? item.get("type").asText() : null;
-            this.mpn = item.has("mpn") ? item.get("mpn").asText() : null;
-            this.title = item.has("title") ? item.get("title").asText() : null;
-            this.description = item.has("description") ? item.get("description").asText() : null;
-            this.upc = item.has("upc") ? item.get("upc").asText() : null;
-            this.sku = item.has("sku") ? item.get("sku").asText() : null;
-            this.imageLink = item.has("imageLink") ? item.get("imageLink").asText() : null;
+            // Map top-level fields
+            this.productId = productData.has("id") ? productData.get("id").asInt() : 0;
+            this.productCode = productData.has("product_code") ? productData.get("product_code").asText() : "";
+            this.quantity = productData.has("inventory_level") ? productData.get("inventory_level").asInt() : 0;
+            this.price = productData.has("price") ? productData.get("price").asDouble() : 0.0;
+            this.regularPrice = productData.has("retail_price") ? productData.get("retail_price").asDouble() : 0.0;
+            this.salePrice = productData.has("sale_price") ? productData.get("sale_price").asDouble() : 0.0;
+            this.width = productData.has("width") ? productData.get("width").asDouble() : 0.0;
+            this.length = productData.has("depth") ? productData.get("depth").asDouble() : 0.0;
+            this.height = productData.has("height") ? productData.get("height").asDouble() : 0.0;
+            this.weight = productData.has("weight") ? productData.get("weight").asDouble() : 0.0;
+            this.type = productData.has("type") ? productData.get("type").asText() : "";
+            this.mpn = productData.has("mpn") ? productData.get("mpn").asText() : "";
+            this.title = productData.has("name") ? productData.get("name").asText() : "";
+            this.description = productData.has("description") ? productData.get("description").asText() : "";
+            this.upc = productData.has("upc") ? productData.get("upc").asText() : "";
+            this.sku = productData.has("sku") ? productData.get("sku").asText() : "";
+
+            // Handle images
+            JsonNode images = productData.get("images");
+            if (images != null && images.isArray() && images.size() > 0) {
+                JsonNode image = images.get(0);
+                this.imageLink = image.has("url_zoom") ? image.get("url_zoom").asText() : "";
+            }
+
         } catch (Exception e) {
-            throw new RuntimeException("Failed to parse LakesItem JSON", e);
+            // Log the error instead of throwing an exception
+            System.err.println("Failed to parse LakesItem JSON: " + e.getMessage());
         }
     }
 }
