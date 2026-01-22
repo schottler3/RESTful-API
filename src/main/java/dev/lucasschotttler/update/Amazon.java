@@ -1,10 +1,32 @@
 package dev.lucasschotttler.update;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import dev.lucasschotttler.database.DatabaseItem;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
 import java.util.HashMap;
 
 @Service
 public class Amazon {
+
+    private final String SELLER_ID = System.getenv("AMAZON_SELLER_ID");
+    private final String TOKEN = System.getenv("AMAZON_TOKEN");
+    private final String CLIENT_SECRET = System.getenv("AMAZON_CLIENT_SECRET");
+    private final String IDENTIFIER = System.getenv("AMAZON_IDENTIFIER");
+    private static final Logger logger = LoggerFactory.getLogger(Ebay.class);
+    private static final Amazon amazonService = new Amazon();
+    private static final ObjectMapper mapper = new ObjectMapper();
+    private static final HttpClient httpClient = HttpClient.newHttpClient();
+    private final String ENDPOINT = "https://sellingpartnerapi-na.amazon.com";
+    private final String MARKETPLACE_ID = "ATVPDKIKX0DER";
     
     public static HashMap<String, Double> getPrices(double basePrice) {
 
@@ -69,4 +91,54 @@ public class Amazon {
 
         return amazonPrices;
     }
+
+    public static boolean patchAmazonItem(DatabaseItem dbItem){
+        
+
+
+        return true;
+    }
+
+    private String getAccessToken(DatabaseItem dbItem){
+
+        try{
+            ObjectNode tokenRequest = mapper.createObjectNode();
+            ObjectNode data = tokenRequest.putObject("data");
+
+            data.put("grant_type", "refresh_token");
+            data.put("refresh_token", TOKEN);
+            data.put("client_id", IDENTIFIER);
+            data.put("client_secret", CLIENT_SECRET);
+
+            String jsonBody;
+            try {
+                jsonBody = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(tokenRequest);
+            } catch (Exception e) {
+                logger.error("Failed to serialize JSON on Amazon Refresh error: {}", e.getMessage());
+                return "";
+            }
+            
+            // Build HTTP request
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://api.amazon.com/auth/o2/token"))
+                .header("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                .build();
+
+            if(!amazonService.doRequest(dbItem, request)) {
+                logger.error("Amazon refresh_token POST FAILED. sku: {}", dbItem.sku);
+            }
+
+            } catch (Exception e){
+                logger.error("Amazon refresh_token FAILED. sku: {}", dbItem.sku);
+                return "";
+            }
+
+    }
+
+    private boolean doRequest(DatabaseItem dbItem, HttpRequest request){
+
+        return true;
+    }
+
 }

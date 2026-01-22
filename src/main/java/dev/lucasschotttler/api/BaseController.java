@@ -91,13 +91,13 @@ class LakesController {
 
         DatabaseItem dbItem = new DatabaseItem(item);
 
+        System.out.println(dbItem);
+
         LakesItem lakesItem = Lakes.getLakesItem(dbItem.lakesid);
         
         dbItem.updateItem(lakesItem, db);
 
-        //System.out.println(dbItem);
-
-        //Ebay.updateItem(dbItem);
+        Ebay.updateItem(dbItem);
     
         return null;
     }

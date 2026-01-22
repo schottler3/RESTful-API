@@ -283,6 +283,8 @@ public class Ebay {
 
         final String inventory_url = API + "inventory_item/" + dbItem.sku;
 
+        logger.info("InventoryUpdateData: {}", inventoryUpdateData);
+
         // Build HTTP request
         HttpRequest inventoryRequest = HttpRequest.newBuilder()
             .uri(URI.create(inventory_url))
