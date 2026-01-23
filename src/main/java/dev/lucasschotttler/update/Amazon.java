@@ -6,12 +6,14 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 
 import dev.lucasschotttler.database.DatabaseItem;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.HashMap;
 
 @Service
@@ -92,9 +94,148 @@ public class Amazon {
         return amazonPrices;
     }
 
-    public static boolean patchAmazonItem(DatabaseItem dbItem){
+    public boolean patchAmazonItem(DatabaseItem dbItem){
         
+        String accessToken = amazonService.getAccessToken(dbItem);
 
+        if(accessToken == null || accessToken.equals("")){
+            logger.warn("Amazon Access Token Failed, SKU: {}", dbItem.sku);
+            return false;
+        }
+
+        final String get_url = ENDPOINT + "/listings/2021-08-01/items/" + SELLER_ID + "/" + dbItem.sku + "?marketplaceIds=" + MARKETPLACE_ID + "&issueLocale=en_US&includedData=attributes";
+
+        HttpRequest getRequest = HttpRequest.newBuilder()
+            .uri(URI.create(get_url))
+            .header("accept", "application/json")
+            .header("x-amz-access-token", accessToken)
+            .GET()
+            .build();
+
+        HttpResponse<String> get_response = doRequest(getRequest, dbItem.sku);
+
+        ObjectNode itemData;
+
+        try{
+            itemData = (ObjectNode) mapper.readTree(get_response.body());
+        } catch (Exception e){
+            logger.error("Amazon JSON mapper error on get_response, sku: {}", dbItem.sku);
+            return false;
+        }
+
+        ObjectNode currentAttributes = null;
+        if (itemData.has("attributes") && itemData.get("attributes").isObject()) {
+            currentAttributes = (ObjectNode) itemData.get("attributes");
+        } else {
+            logger.error("Amazon itemData missing 'attributes' field, sku: {}", dbItem.sku);
+            return false;
+        }
+
+        final String productType = "PRODUCT";
+
+        ArrayNode patches = mapper.createArrayNode();
+
+        // #region Purchaseable offer patch
+        if (currentAttributes.has("purchasable_offer")) {
+            ObjectNode purchasableOfferPatch = mapper.createObjectNode();
+            purchasableOfferPatch.put("op", "replace");
+            purchasableOfferPatch.put("path", "/attributes/purchasable_offer");
+
+            ArrayNode purchasableOfferValue = mapper.createArrayNode();
+            ObjectNode offer = mapper.createObjectNode();
+
+            // our_price
+            ArrayNode ourPrice = mapper.createArrayNode();
+            ObjectNode ourPriceSchedule = mapper.createObjectNode();
+            ArrayNode ourPriceScheduleArr = mapper.createArrayNode();
+            ObjectNode ourPriceValue = mapper.createObjectNode();
+            ourPriceValue.put("value_with_tax", dbItem.custom_price != null ? dbItem.custom_price : dbItem.calculated_price);
+            ourPriceScheduleArr.add(ourPriceValue);
+            ourPriceSchedule.set("schedule", ourPriceScheduleArr);
+            ourPrice.add(ourPriceSchedule);
+            offer.set("our_price", ourPrice);
+
+            // minimum_seller_allowed_price
+            ArrayNode minPrice = mapper.createArrayNode();
+            ObjectNode minPriceSchedule = mapper.createObjectNode();
+            ArrayNode minPriceScheduleArr = mapper.createArrayNode();
+            ObjectNode minPriceValue = mapper.createObjectNode();
+            minPriceValue.put("value_with_tax", dbItem.minimum_price);
+            minPriceScheduleArr.add(minPriceValue);
+            minPriceSchedule.set("schedule", minPriceScheduleArr);
+            minPrice.add(minPriceSchedule);
+            offer.set("minimum_seller_allowed_price", minPrice);
+
+            // maximum_seller_allowed_price
+            ArrayNode maxPrice = mapper.createArrayNode();
+            ObjectNode maxPriceSchedule = mapper.createObjectNode();
+            ArrayNode maxPriceScheduleArr = mapper.createArrayNode();
+            ObjectNode maxPriceValue = mapper.createObjectNode();
+            maxPriceValue.put("value_with_tax", dbItem.maximum_price);
+            maxPriceScheduleArr.add(maxPriceValue);
+            maxPriceSchedule.set("schedule", maxPriceScheduleArr);
+            maxPrice.add(maxPriceSchedule);
+            offer.set("maximum_seller_allowed_price", maxPrice);
+
+            purchasableOfferValue.add(offer);
+            purchasableOfferPatch.set("value", purchasableOfferValue);
+
+            patches.add(purchasableOfferPatch);
+        }
+        //#endregion
+
+        // #region Fulfillment availability patch
+        ObjectNode fulfillmentPatch = mapper.createObjectNode();
+        fulfillmentPatch.put("op", "replace");
+        fulfillmentPatch.put("path", "/attributes/fulfillment_availability");
+
+        ArrayNode fulfillmentValue = mapper.createArrayNode();
+        ObjectNode fulfillment = mapper.createObjectNode();
+        fulfillment.put("fulfillment_channel_code", "DEFAULT");
+        fulfillment.put("quantity", dbItem.custom_quantity != null ? dbItem.custom_quantity : (int) (dbItem.quantity * .66));
+        fulfillment.put("lead_time_to_ship_max_days", dbItem.fulfillment);
+        fulfillmentValue.add(fulfillment);
+
+        fulfillmentPatch.set("value", fulfillmentValue);
+
+        patches.add(fulfillmentPatch);
+        //#endregion
+
+        // #region Images patch
+        String[] milwaukee_images = dbItem.milwaukee_images.split(",");
+
+        if(milwaukee_images.length > 0){
+
+            if(milwaukee_images.length > 9){
+                milwaukee_images = java.util.Arrays.copyOf(milwaukee_images, 9);
+            }
+
+            for (int i = 1; i < milwaukee_images.length; i++) {
+                ObjectNode imagePatch = mapper.createObjectNode();
+                imagePatch.put("op", "replace");
+                imagePatch.put("path", "/attributes/other_product_image_locator_" + i);
+
+                ArrayNode valueArr = mapper.createArrayNode();
+                ObjectNode valueObj = mapper.createObjectNode();
+                valueObj.put("media_location", milwaukee_images[i]);
+                valueObj.put("marketplace_id", MARKETPLACE_ID);
+                valueArr.add(valueObj);
+
+                imagePatch.set("value", valueArr);
+
+                patches.add(imagePatch);
+            }
+        }
+
+        //#endregion
+
+        final String patch_url = ENDPOINT + "/listings/2021-08-01/items/" + SELLER_ID + "/" + dbItem.sku + "?marketplaceIds=" + MARKETPLACE_ID;
+
+        HttpRequest patchRequest = HttpRequest.newBuilder()
+            .uri(URI.create(patch_url))
+            .header("accept", "application/json")
+            .header("x-amz-access-token", accessToken)
+            .build();
 
         return true;
     }
@@ -125,20 +266,70 @@ public class Amazon {
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                 .build();
 
-            if(!amazonService.doRequest(dbItem, request)) {
-                logger.error("Amazon refresh_token POST FAILED. sku: {}", dbItem.sku);
-            }
+            HttpResponse<String> response = amazonService.doRequest(request, dbItem.sku);
 
-            } catch (Exception e){
-                logger.error("Amazon refresh_token FAILED. sku: {}", dbItem.sku);
+            if(response == null || response.statusCode() != 200){
+                logger.error("Amazon Returned no Refresh Token. Sku: {}", dbItem.sku);
                 return "";
             }
 
+            try {
+                ObjectNode responseJson = (ObjectNode) mapper.readTree(response.body());
+                return responseJson.has("access_code") ? responseJson.get("access_code").asText() : "";
+            } catch (Exception e) {
+                logger.error("Failed to parse Amazon token response JSON: {}", e.getMessage());
+                return "";
+            }
+
+        } catch (Exception e){
+            logger.error("Amazon refresh_token FAILED. sku: {}", dbItem.sku);
+            return "";
+        }
+
     }
 
-    private boolean doRequest(DatabaseItem dbItem, HttpRequest request){
+    private HttpResponse<String> doRequest(HttpRequest request, String sku){
 
-        return true;
+        int max_retries = 3;
+
+        for (int i = 0; i < max_retries; i++) {
+
+            logger.info("Amazon Request ATTEMPT: sku: {}, attempt: {}", sku, i + 1);
+
+            HttpResponse<String> response;
+
+            try {
+                response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                logger.info("Amazon Request FINISHED: sku: {}", sku);
+            } catch (Exception e) {
+                logger.error("Amazon Request EXCEPTION: sku: {}, attempt: {}, error: {}", sku, i + 1, e.getMessage());
+                continue;
+            }
+
+            if (response.statusCode() == 204 || response.statusCode() == 200) {
+                logger.info("Amazon Request SUCCESS: sku: {}", sku);
+                return response;
+            } else {
+                logger.error("Amazon Request ERROR: sku: {}, status: {}, attempt: {}, body: {}", 
+                    sku, response.statusCode(), i + 1, response.body());
+                
+                // Don't retry on client errors (4xx)
+                if (response.statusCode() >= 400 && response.statusCode() < 500) {
+                    logger.error("Amazon Request Client error - not retrying: sku: {}, status: {}", sku, response.statusCode());
+                    return response;
+                }
+                
+                double wait = Math.pow(2, i) + Math.random();
+                try {
+                    Thread.sleep((long)(wait * 1000));
+                } catch (InterruptedException ie) {
+                    logger.error("Amazon Request Sleep interrupted: sku: {}, attempt: {}", sku, i + 1);
+                    Thread.currentThread().interrupt();
+                    return response;
+                }
+            }
+        }
+        return null;
     }
 
 }
