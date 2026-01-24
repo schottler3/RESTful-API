@@ -18,6 +18,7 @@ import dev.lucasschotttler.database.DatabaseItem;
 import dev.lucasschotttler.database.Databasing;
 import dev.lucasschotttler.lakes.Lakes;
 import dev.lucasschotttler.lakes.LakesItem;
+import dev.lucasschotttler.update.Amazon;
 import dev.lucasschotttler.update.Ebay;
 
 import org.slf4j.Logger;
@@ -97,7 +98,9 @@ class LakesController {
         
         dbItem.updateItem(lakesItem, db);
 
-        Ebay.updateItem(dbItem);
+        Amazon.updateItem(dbItem);
+
+        //Ebay.updateItem(dbItem);
     
         return null;
     }

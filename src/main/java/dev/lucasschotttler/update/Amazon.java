@@ -19,16 +19,18 @@ import java.util.HashMap;
 @Service
 public class Amazon {
 
-    private final String SELLER_ID = System.getenv("AMAZON_SELLER_ID");
-    private final String TOKEN = System.getenv("AMAZON_TOKEN");
-    private final String CLIENT_SECRET = System.getenv("AMAZON_CLIENT_SECRET");
-    private final String IDENTIFIER = System.getenv("AMAZON_IDENTIFIER");
+    private final static String SELLER_ID = System.getenv("AMAZON_SELLER_ID");
+    private final static String TOKEN = System.getenv("AMAZON_TOKEN");
+    private final static String CLIENT_SECRET = System.getenv("AMAZON_CLIENT_SECRET");
+    private final static String IDENTIFIER = System.getenv("AMAZON_IDENTIFIER");
     private static final Logger logger = LoggerFactory.getLogger(Ebay.class);
-    private static final Amazon amazonService = new Amazon();
+    
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final HttpClient httpClient = HttpClient.newHttpClient();
-    private final String ENDPOINT = "https://sellingpartnerapi-na.amazon.com";
-    private final String MARKETPLACE_ID = "ATVPDKIKX0DER";
+
+    private final static String ENDPOINT = "https://sellingpartnerapi-na.amazon.com";
+    private final static String MARKETPLACE_ID = "ATVPDKIKX0DER";
+
     
     public static HashMap<String, Double> getPrices(double basePrice) {
 
@@ -94,9 +96,9 @@ public class Amazon {
         return amazonPrices;
     }
 
-    public boolean patchAmazonItem(DatabaseItem dbItem){
-        
-        String accessToken = amazonService.getAccessToken(dbItem);
+    public static boolean updateItem(DatabaseItem dbItem){
+    
+        String accessToken = Amazon.getAccessToken(dbItem);
 
         if(accessToken == null || accessToken.equals("")){
             logger.warn("Amazon Access Token Failed, SKU: {}", dbItem.sku);
@@ -123,6 +125,15 @@ public class Amazon {
             return false;
         }
 
+        // Get the productType from the response
+        String productType = "PRODUCT"; // default fallback
+        if (itemData.has("productType")) {
+            productType = itemData.get("productType").asText();
+            logger.info("Amazon productType for sku {}: {}", dbItem.sku, productType);
+        } else {
+            logger.warn("Amazon productType not found in response for sku: {}, using default", dbItem.sku);
+        }
+
         ObjectNode currentAttributes = null;
         if (itemData.has("attributes") && itemData.get("attributes").isObject()) {
             currentAttributes = (ObjectNode) itemData.get("attributes");
@@ -130,8 +141,6 @@ public class Amazon {
             logger.error("Amazon itemData missing 'attributes' field, sku: {}", dbItem.sku);
             return false;
         }
-
-        final String productType = "PRODUCT";
 
         ArrayNode patches = mapper.createArrayNode();
 
@@ -229,66 +238,78 @@ public class Amazon {
 
         //#endregion
 
+        // Create request body with productType
+        ObjectNode requestBody = mapper.createObjectNode();
+        requestBody.put("productType", productType);
+        requestBody.set("patches", patches);
+
+        logger.info("Amazon PATCH request body, sku: {}, body: {}", dbItem.sku, requestBody.toString());
+
         final String patch_url = ENDPOINT + "/listings/2021-08-01/items/" + SELLER_ID + "/" + dbItem.sku + "?marketplaceIds=" + MARKETPLACE_ID;
 
         HttpRequest patchRequest = HttpRequest.newBuilder()
             .uri(URI.create(patch_url))
             .header("accept", "application/json")
+            .header("Content-Type", "application/json")
             .header("x-amz-access-token", accessToken)
+            .method("PATCH", HttpRequest.BodyPublishers.ofString(requestBody.toString()))
             .build();
+
+        HttpResponse<String> patch_response = doRequest(patchRequest, dbItem.sku);
+
+        if(patch_response == null || (patch_response.statusCode() != 200 && patch_response.statusCode() != 204)) {
+            logger.error("Amazon PATCH failed, sku: {}, status: {}", dbItem.sku, 
+                patch_response != null ? patch_response.statusCode() : "null");
+            return false;
+        }
+
+        logger.info("Amazon PATCH finished, sku: {}", dbItem.sku);
 
         return true;
     }
 
-    private String getAccessToken(DatabaseItem dbItem){
-
+    private static String getAccessToken(DatabaseItem dbItem){
         try{
-            ObjectNode tokenRequest = mapper.createObjectNode();
-            ObjectNode data = tokenRequest.putObject("data");
-
-            data.put("grant_type", "refresh_token");
-            data.put("refresh_token", TOKEN);
-            data.put("client_id", IDENTIFIER);
-            data.put("client_secret", CLIENT_SECRET);
-
-            String jsonBody;
-            try {
-                jsonBody = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(tokenRequest);
-            } catch (Exception e) {
-                logger.error("Failed to serialize JSON on Amazon Refresh error: {}", e.getMessage());
-                return "";
-            }
+            // Build URL-encoded form data
+            String formData = "grant_type=refresh_token" +
+                "&refresh_token=" + TOKEN +
+                "&client_id=" + IDENTIFIER +
+                "&client_secret=" + CLIENT_SECRET;
             
-            // Build HTTP request
+            // Build HTTP request with correct content type
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("https://api.amazon.com/auth/o2/token"))
                 .header("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
-                .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                .POST(HttpRequest.BodyPublishers.ofString(formData))
                 .build();
 
-            HttpResponse<String> response = amazonService.doRequest(request, dbItem.sku);
+            HttpResponse<String> access_token_response = Amazon.doRequest(request, dbItem.sku);
 
-            if(response == null || response.statusCode() != 200){
-                logger.error("Amazon Returned no Refresh Token. Sku: {}", dbItem.sku);
+            if(access_token_response == null || access_token_response.statusCode() != 200){
+                logger.error("Amazon Returned no Refresh Token. Status: {}, Sku: {}", 
+                    access_token_response != null ? access_token_response.statusCode() : "null", dbItem.sku);
+                if(access_token_response != null) {
+                    logger.error("Response body: {}", access_token_response.body());
+                }
                 return "";
             }
 
             try {
-                ObjectNode responseJson = (ObjectNode) mapper.readTree(response.body());
-                return responseJson.has("access_code") ? responseJson.get("access_code").asText() : "";
+                ObjectNode responseJson = (ObjectNode) mapper.readTree(access_token_response.body());
+                // Changed from "access_code" to "access_token"
+                return responseJson.has("access_token") ? responseJson.get("access_token").asText() : "";
             } catch (Exception e) {
                 logger.error("Failed to parse Amazon token response JSON: {}", e.getMessage());
                 return "";
             }
 
         } catch (Exception e){
-            logger.error("Amazon refresh_token FAILED. sku: {}", dbItem.sku);
+            logger.error("Amazon refresh_token FAILED. sku: {}, error: {}", dbItem.sku, e.getMessage());
             return "";
         }
-
     }
 
-    private HttpResponse<String> doRequest(HttpRequest request, String sku){
+    private static HttpResponse<String> doRequest(HttpRequest request, String sku){
 
         int max_retries = 3;
 
