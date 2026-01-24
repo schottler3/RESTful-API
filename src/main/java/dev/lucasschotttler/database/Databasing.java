@@ -15,20 +15,15 @@ public class Databasing {
 
     private static final Logger logger = LoggerFactory.getLogger(Databasing.class);    
 
-    private final Set<String> integerColumns = Set.of("lakesid", "quantity", "custom_quantity", "fulfillment");
+    private static final Set<String> integerColumns = Set.of("lakesid", "quantity", "custom_quantity", "fulfillment");
 
-    private final Set<String> doubleColumns = Set.of(
+    private static final Set<String> doubleColumns = Set.of(
         "width", "length", "height", "weight",
         "package_width", "package_length", "package_height", "package_weight",
         "minimum_price", "calculated_price", "maximum_price", "lakes_price", "custom_price"
     );
 
-    private final Set<String> stringColumns = Set.of(
-        "type", "mpn", "title", "description", "upc", "sku",
-        "milwaukee_images", "custom_description", "lakes_images"
-    );
-
-    private final Set<String> allowedColumns = Set.of(
+    private static final Set<String> allowedColumns = Set.of(
         // Integer columns
         "lakesid", "quantity", "custom_quantity", "fulfillment",
         // Double columns

@@ -14,7 +14,7 @@ spring:
       max-lifetime: 1800000
 logging:
   level:
-    root: WARN
+    root: INFO
     dev.lucasschotttler: INFO
 server:
   error:

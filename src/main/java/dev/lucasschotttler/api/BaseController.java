@@ -1,6 +1,5 @@
 package dev.lucasschotttler.api;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -14,12 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import dev.lucasschotttler.database.DatabaseItem;
 import dev.lucasschotttler.database.Databasing;
-import dev.lucasschotttler.lakes.Lakes;
-import dev.lucasschotttler.lakes.LakesItem;
-import dev.lucasschotttler.update.Amazon;
-import dev.lucasschotttler.update.Ebay;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,12 +38,10 @@ public class BaseController {
 @RequestMapping("/superior")
 class SuperiorController {
 
-    private final Databasing db;
     private final Actions actions;
     private static final Logger logger = LoggerFactory.getLogger(SkuController.class);
 
-    public SuperiorController(Databasing db, Actions actions) {
-        this.db = db;
+    public SuperiorController(Actions actions) {
         this.actions = actions;
     }
 
@@ -59,7 +51,7 @@ class SuperiorController {
             actions.updateInventory();
             return ResponseEntity.ok("Inventory updated successfully");
         } catch (Exception e){
-            logger.error("This shouldn't be possible atm");
+            logger.error("This shouldn't be possible atm, error: {}", e);
         }
         return null;
     }
@@ -67,42 +59,6 @@ class SuperiorController {
     @GetMapping("/health")
     public ResponseEntity<String> health() {
         return ResponseEntity.ok("{\"status\":\"UP\"}");
-    }
-}
-
-@RestController
-@RequestMapping("/superior/lakes")
-class LakesController {
-
-    private static final Logger logger = LoggerFactory.getLogger(SkuController.class);
-    private final Databasing db;
-
-    public LakesController(Databasing db) {
-        this.db = db;
-    }
-
-    @GetMapping({ "", "/" })
-    public ResponseEntity<?> lakesEnd(
-        @RequestParam(required = true) int id
-    ) {
-        logger.info("Received request - {}: ", id);
-
-        List<Map<String, Object>> items = db.queryDatabase(String.valueOf(id), 1);
-        Map<String, Object> item = items.get(0);
-
-        DatabaseItem dbItem = new DatabaseItem(item);
-
-        System.out.println(dbItem);
-
-        LakesItem lakesItem = Lakes.getLakesItem(dbItem.lakesid);
-        
-        dbItem.updateItem(lakesItem, db);
-
-        Amazon.updateItem(dbItem);
-
-        //Ebay.updateItem(dbItem);
-    
-        return null;
     }
 }
 

@@ -1,6 +1,5 @@
 package dev.lucasschotttler.database;
 
-import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;

@@ -116,6 +116,11 @@ public class Amazon {
 
         HttpResponse<String> get_response = doRequest(getRequest, dbItem.sku);
 
+        if(get_response.statusCode() == 404){
+            logger.warn("Amazon item not found or doesn't exist. sku: {}", dbItem.sku);
+            return false;
+        }
+
         ObjectNode itemData;
 
         try{
@@ -211,28 +216,31 @@ public class Amazon {
         //#endregion
 
         // #region Images patch
-        String[] milwaukee_images = dbItem.milwaukee_images.split(",");
 
-        if(milwaukee_images.length > 0){
+        if(dbItem.milwaukee_images != null){
+            String[] milwaukee_images = dbItem.milwaukee_images.split(",");
 
-            if(milwaukee_images.length > 9){
-                milwaukee_images = java.util.Arrays.copyOf(milwaukee_images, 9);
-            }
+            if(milwaukee_images.length > 0){
 
-            for (int i = 1; i < milwaukee_images.length; i++) {
-                ObjectNode imagePatch = mapper.createObjectNode();
-                imagePatch.put("op", "replace");
-                imagePatch.put("path", "/attributes/other_product_image_locator_" + i);
+                if(milwaukee_images.length > 9){
+                    milwaukee_images = java.util.Arrays.copyOf(milwaukee_images, 9);
+                }
 
-                ArrayNode valueArr = mapper.createArrayNode();
-                ObjectNode valueObj = mapper.createObjectNode();
-                valueObj.put("media_location", milwaukee_images[i]);
-                valueObj.put("marketplace_id", MARKETPLACE_ID);
-                valueArr.add(valueObj);
+                for (int i = 1; i < milwaukee_images.length; i++) {
+                    ObjectNode imagePatch = mapper.createObjectNode();
+                    imagePatch.put("op", "replace");
+                    imagePatch.put("path", "/attributes/other_product_image_locator_" + i);
 
-                imagePatch.set("value", valueArr);
+                    ArrayNode valueArr = mapper.createArrayNode();
+                    ObjectNode valueObj = mapper.createObjectNode();
+                    valueObj.put("media_location", milwaukee_images[i]);
+                    valueObj.put("marketplace_id", MARKETPLACE_ID);
+                    valueArr.add(valueObj);
 
-                patches.add(imagePatch);
+                    imagePatch.set("value", valueArr);
+
+                    patches.add(imagePatch);
+                }
             }
         }
 

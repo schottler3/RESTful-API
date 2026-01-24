@@ -19,7 +19,6 @@ public class Lakes {
     
     private static final Logger logger = LoggerFactory.getLogger(Ebay.class);
     private static final String ITEMLINK = "https://swymstore-v3pro-01.swymrelay.com/api/v2/provider/getPlatformProducts?pid=jn9XxHMVJRoc160vy%2BI3OVpfL8Wq3P19N1qklE2GjTk%3D";
-    private static final String APILINK = "https://searchserverapi1.com/getresults?api_key=4O3Y4Q0o6o";
 
     // #region TOOL_NAMES
     private static final List<String> TOOL_NAMES = Arrays.asList(
