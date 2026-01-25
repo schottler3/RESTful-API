@@ -28,13 +28,13 @@ public class Actions {
         this.db = db;
     }
 
-    public boolean resetItem(int lakesid){
+    public DatabaseItem resetItem(int lakesid){
 
         Map<String, Object> item = db.getData(lakesid, 1);
 
         if(item == null){
             logger.warn("Actions failed to reset lakesid: {} due to no results", lakesid);
-            return false;
+            return null;
         }
 
         logger.info("Actions starting reset on item: {}", item);
@@ -50,7 +50,7 @@ public class Actions {
 
         logger.info("Actions reset resolved resetItem on database for sku: {}", dbItem.sku);
 
-        return true;
+        return dbItem;
     }
 
     public boolean updateItem(int lakesid){

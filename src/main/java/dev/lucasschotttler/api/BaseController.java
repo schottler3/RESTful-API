@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import dev.lucasschotttler.database.Databasing;
+import dev.lucasschotttler.database.DatabaseItem;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -168,6 +169,7 @@ class ResetController {
 
     private final Databasing db;
     private final Actions actions;
+    private static final Logger logger = LoggerFactory.getLogger(ResetController.class);
 
     public ResetController(Databasing db, Actions actions) {
         this.db = db;
@@ -175,12 +177,18 @@ class ResetController {
     }
 
     @PutMapping("/{lakesid}")
-    public ResponseEntity<Boolean> resetItem(@PathVariable int lakesid) {
+    public ResponseEntity<DatabaseItem> resetItem(@PathVariable int lakesid) {
         try {
-            boolean result = actions.resetItem(lakesid);
+            DatabaseItem result = actions.resetItem(lakesid);
+
+            if (result == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            }
+
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(false);
+            logger.error("Reset failed for lakesid {}", lakesid, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 }

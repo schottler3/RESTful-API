@@ -57,8 +57,7 @@ public class Databasing {
 
     public java.util.Map<String, Object> getData(int lakesid, int limit) {
         String sql = "SELECT * FROM superior WHERE lakesid = ?";
-        String pattern = "%" + lakesid + "%";
-        return jdbcTemplate.queryForMap(sql, pattern);
+        return jdbcTemplate.queryForMap(sql, lakesid);
     }
 
     public List<java.util.Map<String, Object>> queryDatabase(String query, int limit) {
