@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import dev.lucasschotttler.database.Databasing;
+import dev.lucasschotttler.lakes.Lakes;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,10 +69,12 @@ class SuperiorController {
 class SkuController {
 
     private final Databasing db;
+    private final Actions actions;
     private static final Logger logger = LoggerFactory.getLogger(SkuController.class);
 
-    public SkuController(Databasing db) {
+    public SkuController(Databasing db, Actions actions) {
         this.db = db;
+        this.actions = actions;
     }
 
     @GetMapping({ "", "/" })
@@ -115,6 +118,7 @@ class SkuController {
 
     @PatchMapping({"", "/"})
     public ResponseEntity<?> patchRoot(@RequestBody(required = true) List<Map<String, Object>> requestBody) {
+
         if (requestBody == null || requestBody.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Request body is missing or empty"));
         }
@@ -140,6 +144,7 @@ class SkuController {
                 logger.info("Attempt on Change - lakesid: {}, attribute: {}, new: {}", lakesid, attribute, newValue);
                 if(db.patchItem(lakesid, attribute, newValue)){
                     logger.info("Success on Change: lakesid: {}, attribute: {}, new: {}", lakesid, attribute, newValue);
+                    actions.updateItem(lakesid);
                 }
                 else{
                     logger.error("Failure on Change: lakesid: {}, attribute: {}, new: {}", lakesid, attribute, newValue);
@@ -166,11 +171,9 @@ class SkuController {
 @RequestMapping("/superior/data/reset")
 class ResetController {
 
-    private final Databasing db;
     private final Actions actions;
 
-    public ResetController(Databasing db, Actions actions) {
-        this.db = db;
+    public ResetController(Actions actions) {
         this.actions = actions;
     }
 
@@ -189,11 +192,9 @@ class ResetController {
 @RequestMapping("/superior/data/update")
 class UpdateController {
 
-    private final Databasing db;
     private final Actions actions;
 
-    public UpdateController(Databasing db, Actions actions) {
-        this.db = db;
+    public UpdateController(Actions actions) {
         this.actions = actions;
     }
 
