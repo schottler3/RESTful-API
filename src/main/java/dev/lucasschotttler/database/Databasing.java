@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
 @Service
 public class Databasing {
 
-    private static final Logger logger = LoggerFactory.getLogger(Databasing.class);    
+    private static final Logger logger = LoggerFactory.getLogger(Databasing.class);   
 
     private static final Set<String> integerColumns = Set.of("quantity", "custom_quantity", "fulfillment");
 
@@ -130,6 +130,10 @@ public class Databasing {
 
     public boolean resetItem(LakesItem lakesItem) {
         HashMap<String, Double> amazonPrices = Amazon.getPrices(lakesItem.price);
+        if (amazonPrices == null) {
+            logger.error("Amazon prices could not be retrieved for lakesItem with ID: {}", lakesItem.lakesid);
+            return false;
+        }
         
         String sql = """
             UPDATE superior
