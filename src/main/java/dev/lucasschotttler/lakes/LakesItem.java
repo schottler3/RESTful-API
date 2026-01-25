@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class LakesItem {
-    public int productId;
+    public int lakesid;
     public String productCode;
     public int quantity;
     public double price;
@@ -31,7 +31,7 @@ public class LakesItem {
             JsonNode productData = firstElement.get("productdata");
 
             // Map top-level fields
-            this.productId = productData.has("id") ? productData.get("id").asInt() : 0;
+            this.lakesid = productData.has("id") ? productData.get("id").asInt() : 0;
             this.productCode = productData.has("product_code") ? productData.get("product_code").asText() : "";
             this.quantity = productData.has("inventory_level") ? productData.get("inventory_level").asInt() : 0;
             this.price = productData.has("price") ? productData.get("price").asDouble() : 0.0;

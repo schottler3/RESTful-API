@@ -114,7 +114,7 @@ public class Ebay {
         double package_height = dbItem.package_height != null ? dbItem.package_height : dbItem.height + 1;
         double package_weight = dbItem.package_weight != null ? dbItem.package_weight : dbItem.weight + 1;
 
-        String description = dbItem.custom_description != null ? dbItem.custom_description : dbItem.description;
+        String description = dbItem.description;
         int quantity = dbItem.custom_quantity != null ? dbItem.custom_quantity : (int) (dbItem.quantity * .66);
 
         // #region JSON_BUILD

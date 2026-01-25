@@ -31,7 +31,9 @@ public class Amazon {
     private final static String ENDPOINT = "https://sellingpartnerapi-na.amazon.com";
     private final static String MARKETPLACE_ID = "ATVPDKIKX0DER";
 
-    
+    private String accessToken;
+    private long tokenExpiresAt = 0;
+
     public static HashMap<String, Double> getPrices(double basePrice) {
 
         HashMap<String, Double> amazonPrices = new HashMap<>();
@@ -96,11 +98,24 @@ public class Amazon {
         return amazonPrices;
     }
 
-    public static boolean updateItem(DatabaseItem dbItem){
-    
-        String accessToken = Amazon.getAccessToken(dbItem);
+    private String getValidAccessToken() {
+        long currentTime = System.currentTimeMillis();
+        
+        if (accessToken == null || currentTime >= tokenExpiresAt - (5 * 60 * 1000)) {
+            accessToken = refreshAccessToken();
+            if (accessToken != null && !accessToken.isEmpty()) {
+                tokenExpiresAt = currentTime + (3600 * 1000);
+            }
+        }
+        
+        return accessToken;
+    }
 
-        if(accessToken == null || accessToken.equals("")){
+    public boolean updateItem(DatabaseItem dbItem){
+    
+        String accessToken = getValidAccessToken();
+        
+        if(accessToken == null || accessToken.equals("")) {
             logger.warn("Amazon Access Token Failed, SKU: {}", dbItem.sku);
             return false;
         }
@@ -276,43 +291,32 @@ public class Amazon {
         return true;
     }
 
-    private static String getAccessToken(DatabaseItem dbItem){
-        try{
-            // Build URL-encoded form data
+    private String refreshAccessToken() {
+        try {
             String formData = "grant_type=refresh_token" +
                 "&refresh_token=" + TOKEN +
                 "&client_id=" + IDENTIFIER +
                 "&client_secret=" + CLIENT_SECRET;
             
-            // Build HTTP request with correct content type
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("https://api.amazon.com/auth/o2/token"))
                 .header("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
                 .POST(HttpRequest.BodyPublishers.ofString(formData))
                 .build();
 
-            HttpResponse<String> access_token_response = Amazon.doRequest(request, dbItem.sku);
-
-            if(access_token_response == null || access_token_response.statusCode() != 200){
-                logger.error("Amazon Returned no Refresh Token. Status: {}, Sku: {}", 
-                    access_token_response != null ? access_token_response.statusCode() : "null", dbItem.sku);
-                if(access_token_response != null) {
-                    logger.error("Response body: {}", access_token_response.body());
-                }
+            HttpResponse<String> response = doRequest(request, "ACCESS_TOKEN");
+            
+            if(response == null || response.statusCode() != 200) {
+                logger.error("Amazon token refresh failed. Status: {}", 
+                    response != null ? response.statusCode() : "null");
                 return "";
             }
 
-            try {
-                ObjectNode responseJson = (ObjectNode) mapper.readTree(access_token_response.body());
-                // Changed from "access_code" to "access_token"
-                return responseJson.has("access_token") ? responseJson.get("access_token").asText() : "";
-            } catch (Exception e) {
-                logger.error("Failed to parse Amazon token response JSON: {}", e.getMessage());
-                return "";
-            }
-
-        } catch (Exception e){
-            logger.error("Amazon refresh_token FAILED. sku: {}, error: {}", dbItem.sku, e.getMessage());
+            ObjectNode responseJson = (ObjectNode) mapper.readTree(response.body());
+            return responseJson.has("access_token") ? responseJson.get("access_token").asText() : "";
+            
+        } catch (Exception e) {
+            logger.error("Amazon refresh_token FAILED. error: {}", e.getMessage());
             return "";
         }
     }

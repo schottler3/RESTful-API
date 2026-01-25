@@ -1,11 +1,15 @@
 package dev.lucasschotttler.database;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+
+import dev.lucasschotttler.lakes.LakesItem;
+import dev.lucasschotttler.update.Amazon;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +19,7 @@ public class Databasing {
 
     private static final Logger logger = LoggerFactory.getLogger(Databasing.class);    
 
-    private static final Set<String> integerColumns = Set.of("lakesid", "quantity", "custom_quantity", "fulfillment");
+    private static final Set<String> integerColumns = Set.of("quantity", "custom_quantity", "fulfillment");
 
     private static final Set<String> doubleColumns = Set.of(
         "width", "length", "height", "weight",
@@ -25,14 +29,14 @@ public class Databasing {
 
     private static final Set<String> allowedColumns = Set.of(
         // Integer columns
-        "lakesid", "quantity", "custom_quantity", "fulfillment",
+        "quantity", "custom_quantity", "fulfillment",
         // Double columns
         "width", "length", "height", "weight",
         "package_width", "package_length", "package_height", "package_weight",
         "minimum_price", "calculated_price", "maximum_price", "lakes_price", "custom_price",
         // String columns
         "type", "mpn", "title", "description", "upc", "sku",
-        "milwaukee_images", "custom_description", "lakes_images"
+        "milwaukee_images", "lakes_images"
     );
 
     private final JdbcTemplate jdbcTemplate;
@@ -49,6 +53,12 @@ public class Databasing {
         String sql = "SELECT * FROM superior WHERE sku LIKE ? ORDER BY lakesid ASC LIMIT ?";
         String pattern = "%" + SKU + "%";
         return jdbcTemplate.queryForList(sql, pattern, limit);
+    }
+
+    public java.util.Map<String, Object> getData(int lakesid, int limit) {
+        String sql = "SELECT * FROM superior WHERE lakesid = ?";
+        String pattern = "%" + lakesid + "%";
+        return jdbcTemplate.queryForMap(sql, pattern);
     }
 
     public List<java.util.Map<String, Object>> queryDatabase(String query, int limit) {
@@ -115,6 +125,66 @@ public class Databasing {
             return false;
         } catch (Exception e) {
             logger.error("Error updating attribute {}: {}", attribute, e.getMessage(), e);
+            return false;
+        }
+    }
+
+    public boolean resetItem(LakesItem lakesItem) {
+        HashMap<String, Double> amazonPrices = Amazon.getPrices(lakesItem.price);
+        
+        String sql = """
+            UPDATE superior
+            SET 
+                width = ?,
+                length = ?,
+                height = ?,
+                weight = ?,
+                type = ?,
+                mpn = ?,
+                title = ?,
+                description = ?,
+                upc = ?,
+                quantity = ?,
+                custom_quantity = NULL,
+                sku = ?,
+                package_width = NULL,
+                package_length = NULL,
+                package_height = NULL,
+                package_weight = NULL,
+                lakes_images = ?,
+                minimum_price = ?,
+                calculated_price = ?,
+                maximum_price = ?,
+                lakes_price = ?,
+                custom_price = NULL,
+                fulfillment = 5
+            WHERE lakesid = ?
+        """;
+        
+        try {
+            int rowsAffected = jdbcTemplate.update(sql,
+                lakesItem.width,
+                lakesItem.length,
+                lakesItem.height,
+                lakesItem.weight,
+                lakesItem.type,
+                lakesItem.mpn,
+                lakesItem.title,
+                lakesItem.description,
+                lakesItem.upc,
+                lakesItem.quantity,
+                lakesItem.sku,
+                lakesItem.imageLink,
+                amazonPrices.get("minimum_price"),
+                amazonPrices.get("middle_price"),
+                amazonPrices.get("maximum_price"),
+                lakesItem.price,
+                lakesItem.lakesid
+            );
+            
+            return rowsAffected > 0;
+        } catch (Exception e) {
+            logger.error("Failed to reset item {}: {}", lakesItem.lakesid, e.getMessage());
             return false;
         }
     }
