@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -159,6 +160,52 @@ class SkuController {
         }
     }
 
+}
+
+@RestController
+@RequestMapping("/superior/data/reset")
+class ResetController {
+
+    private final Databasing db;
+    private final Actions actions;
+
+    public ResetController(Databasing db, Actions actions) {
+        this.db = db;
+        this.actions = actions;
+    }
+
+    @PutMapping("/{lakesid}")
+    public ResponseEntity<Boolean> resetItem(@PathVariable int lakesid) {
+        try {
+            boolean result = actions.resetItem(lakesid);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(false);
+        }
+    }
+}
+
+@RestController
+@RequestMapping("/superior/data/update")
+class UpdateController {
+
+    private final Databasing db;
+    private final Actions actions;
+
+    public UpdateController(Databasing db, Actions actions) {
+        this.db = db;
+        this.actions = actions;
+    }
+
+    @PutMapping("/{lakesid}")
+    public ResponseEntity<Boolean> updateItem(@PathVariable int lakesid) {
+        try {
+            boolean result = actions.updateItem(lakesid);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(false);
+        }
+    }
 }
 
 @RestController

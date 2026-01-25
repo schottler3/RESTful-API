@@ -34,7 +34,6 @@ public class DatabaseItem {
     public Double package_length;
     public Double package_height;
     public Double package_weight;
-    public String custom_description;
     public String lakes_images;
     public Double minimum_price;
     public Double calculated_price;
@@ -67,7 +66,6 @@ public class DatabaseItem {
         this.package_length = (Double) item.get("package_length");
         this.package_height = (Double) item.get("package_height");
         this.package_weight = (Double) item.get("package_weight");
-        this.custom_description = (String) item.get("custom_description");
         this.lakes_images = (String) item.get("lakes_images");
         this.minimum_price = (Double) item.get("minimum_price");
         this.calculated_price = (Double) item.get("calculated_price");
@@ -93,7 +91,7 @@ public class DatabaseItem {
             this.lakes_price = lakesItem.price;
 
             //minimum_price, middle_price, maximum_price
-            HashMap<String,Double> amazonPrices = Amazon.getPrices(lakesItem.price);
+            HashMap<String,Double> amazonPrices = Amazon.getPrices(this.custom_price != null ? this.custom_price : this.lakes_price);
 
             this.minimum_price = amazonPrices.get("minimum_price");
             this.calculated_price = amazonPrices.get("middle_price");
@@ -113,7 +111,7 @@ public class DatabaseItem {
             }
         }
 
-        if (this.width == null || this.width != lakesItem.width) {
+        if (this.width == null) {
             logger.info("Width Updated: {} -> {}", this.width, lakesItem.width);
             this.width = lakesItem.width;
 
@@ -122,7 +120,7 @@ public class DatabaseItem {
             }
         }
 
-        if (this.length == null || this.length != lakesItem.length) {
+        if (this.length == null) {
             logger.info("Length Updated: {} -> {}", this.length, lakesItem.length);
             this.length = lakesItem.length;
 
@@ -131,7 +129,7 @@ public class DatabaseItem {
             }
         }
 
-        if (this.height == null || this.height != lakesItem.height) {
+        if (this.height == null) {
             logger.info("Height Updated: {} -> {}", this.height, lakesItem.height);
             this.height = lakesItem.height;
 
@@ -140,7 +138,7 @@ public class DatabaseItem {
             }
         }
 
-        if (this.weight == null || this.weight != lakesItem.weight) {
+        if (this.weight == null) {
             logger.info("Weight Updated: {} -> {}", this.weight, lakesItem.weight);
             this.weight = lakesItem.weight;
 
@@ -220,7 +218,7 @@ public class DatabaseItem {
             }
         }
     }
-
+    
     @Override
     public String toString() {
         return "DatabaseItem {\n" +
@@ -243,7 +241,6 @@ public class DatabaseItem {
                 "    package_length=" + package_length + ",\n" +
                 "    package_height=" + package_height + ",\n" +
                 "    package_weight=" + package_weight + ",\n" +
-                "    custom_description='" + custom_description + "',\n" +
                 "    lakes_images='" + lakes_images + "',\n" +
                 "    minimum_price=" + minimum_price + ",\n" +
                 "    calculated_price=" + calculated_price + ",\n" +
