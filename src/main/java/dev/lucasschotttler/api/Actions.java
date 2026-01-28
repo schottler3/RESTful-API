@@ -75,6 +75,14 @@ public class Actions {
 
         logger.info("Actions reset resolved updateItem on database for sku: {}", dbItem.sku);
 
+        logger.info("Actions update pushing to amazon, sku: ()", dbItem.sku);
+        amazon.updateItem(dbItem);
+
+        logger.info("Actions update FINISHED pushing to amazon, sku: ()", dbItem.sku);
+        logger.info("Actions update pushing to ebay, sku: ()", dbItem.sku);
+        Ebay.updateItem(dbItem);
+        logger.info("Actions update FINISHED pushing to ebay, sku: ()", dbItem.sku);
+
         return true;
     }
 
