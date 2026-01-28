@@ -64,16 +64,25 @@ public class Actions {
 
         logger.info("Actions starting update on item: {}", item);
         DatabaseItem dbItem = new DatabaseItem(item);
-
         logger.info("Actions update resolved dbItem for sku: {}", dbItem.sku);
 
         LakesItem lakesItem = Lakes.getLakesItem(dbItem.lakesid);
-
         logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
-        
-        dbItem.updateItem(lakesItem, db);
 
+        dbItem.updateItem(lakesItem, db);
         logger.info("Actions reset resolved updateItem on database for sku: {}", dbItem.sku);
+
+        logger.info("Actions update pushing to amazon, sku: ()", dbItem.sku);
+        amazon.updateItem(dbItem);
+        logger.info("Actions update FINISHED pushing to amazon, sku: ()", dbItem.sku);
+
+        logger.info("Actions update updating inventory to ebay, sku: ()", dbItem.sku);
+        Ebay.createOrUpdateItem(dbItem);
+        logger.info("Actions update FINISHED updating inventory to ebay, sku: ()", dbItem.sku);
+
+        logger.info("Actions update offer to ebay, sku: ()", dbItem.sku);
+        Ebay.updateOffer(dbItem);
+        logger.info("Actions update FINISHED offer to ebay, sku: ()", dbItem.sku);
 
         return true;
     }

@@ -172,18 +172,37 @@ class SkuController {
 class ResetController {
 
     private final Actions actions;
+    private final Databasing db;    
+    private static final Logger logger = LoggerFactory.getLogger(SkuController.class);
 
-    public ResetController(Actions actions) {
+    public ResetController(Actions actions, Databasing db) {
         this.actions = actions;
+        this.db = db;
     }
 
     @PutMapping("/{lakesid}")
-    public ResponseEntity<Boolean> resetItem(@PathVariable int lakesid) {
+    public ResponseEntity<?> resetItem(@PathVariable int lakesid) {
         try {
-            boolean result = actions.resetItem(lakesid);
-            return ResponseEntity.ok(result);
+            boolean success = actions.resetItem(lakesid);
+            
+            if (!success) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Failed to reset item - item not found or reset failed"));
+            }
+            
+            Map<String, Object> updatedItem = db.getData(lakesid, 1);
+            
+            if (updatedItem == null) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Item reset but failed to retrieve updated data"));
+            }
+            
+            return ResponseEntity.ok(updatedItem);
+            
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(false);
+            logger.error("Error resetting item {}: {}", lakesid, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Internal server error", "details", e.getMessage()));
         }
     }
 }

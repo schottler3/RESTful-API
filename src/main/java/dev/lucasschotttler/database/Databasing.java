@@ -57,8 +57,7 @@ public class Databasing {
 
     public java.util.Map<String, Object> getData(int lakesid, int limit) {
         String sql = "SELECT * FROM superior WHERE lakesid = ?";
-        String pattern = "%" + lakesid + "%";
-        return jdbcTemplate.queryForMap(sql, pattern);
+        return jdbcTemplate.queryForMap(sql, lakesid);
     }
 
     public List<java.util.Map<String, Object>> queryDatabase(String query, int limit) {
@@ -117,6 +116,8 @@ public class Databasing {
             } else {
                 rowsAffected = jdbcTemplate.update(sql, data, lakesid);
             }
+
+            logger.info("Databasing patchItem rowsAffected: {}", rowsAffected);
             
             return rowsAffected > 0;
             
@@ -160,7 +161,6 @@ public class Databasing {
                 calculated_price = ?,
                 maximum_price = ?,
                 lakes_price = ?,
-                custom_price = NULL,
                 fulfillment = 5
             WHERE lakesid = ?
         """;
