@@ -14,6 +14,9 @@ import dev.lucasschotttler.update.Amazon;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.Types;
+
+
 @Service
 public class Databasing {
 
@@ -97,7 +100,7 @@ public class Databasing {
     }
 
     public boolean patchItem(Integer lakesid, String attribute, String data) {
-        
+    
         if (!allowedColumns.contains(attribute)) {
             logger.warn("Invalid attribute: {}", attribute);
             return false;
@@ -108,8 +111,14 @@ public class Databasing {
         
         try {
             int rowsAffected;
-            
-            if (integerColumns.contains(attribute)) {
+
+            if (data == null || data.equalsIgnoreCase("null") || data.trim().isEmpty()) {
+                int sqlType = Types.VARCHAR;
+                if (integerColumns.contains(attribute)) sqlType = Types.INTEGER;
+                else if (doubleColumns.contains(attribute)) sqlType = Types.DOUBLE;
+
+                rowsAffected = jdbcTemplate.update(sql, new Object[]{null, lakesid}, new int[]{sqlType, Types.INTEGER});
+            } else if (integerColumns.contains(attribute)) {
                 rowsAffected = jdbcTemplate.update(sql, Integer.parseInt(data), lakesid);
             } else if (doubleColumns.contains(attribute)) {
                 rowsAffected = jdbcTemplate.update(sql, Double.parseDouble(data), lakesid);
