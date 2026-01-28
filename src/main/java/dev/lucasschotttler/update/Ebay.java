@@ -302,6 +302,22 @@ public class Ebay {
 
         logger.info("Success updateOffer 1/2. SKU: {}", dbItem.sku);
 
+        return ebayService.updateOffer(dbItem);
+    }
+
+    public static boolean updateOffer(DatabaseItem dbItem){
+
+        // Get fresh token
+        Map<String, Object> tokenData = ebayService.getRefreshToken();
+        
+        if (tokenData == null) {
+            logger.error("Failed to refresh token for sku: {}", dbItem.sku);
+            return false;
+        }
+        
+        final String TOKEN = (String) tokenData.get("access_token");
+        final String API = System.getenv("EBAY_INVENTORY_API_END");
+
         ObjectNode offerUpdateNode = mapper.createObjectNode();
 
         ObjectNode pricingSummary = offerUpdateNode.putObject("pricingSummary");
@@ -321,7 +337,7 @@ public class Ebay {
             .header("Content-Type", "application/json")
             .header("Content-Language", "en-US")
             .header("X-EBAY-C-MARKETPLACE-ID", "EBAY-US")
-            .PUT(HttpRequest.BodyPublishers.ofString(inventoryUpdateData.toString()))
+            .PUT(HttpRequest.BodyPublishers.ofString(offerUpdateNode.toString()))
             .build();
 
         if(!ebayService.doRequest(offerRequest, dbItem.sku)){

@@ -126,6 +126,8 @@ public class Databasing {
                 rowsAffected = jdbcTemplate.update(sql, data, lakesid);
             }
 
+            logger.info("Databasing patchItem rowsAffected: {}", rowsAffected);
+            
             return rowsAffected > 0;
             
         } catch (NumberFormatException e) {
@@ -168,7 +170,6 @@ public class Databasing {
                 calculated_price = ?,
                 maximum_price = ?,
                 lakes_price = ?,
-                custom_price = NULL,
                 fulfillment = 5
             WHERE lakesid = ?
         """;

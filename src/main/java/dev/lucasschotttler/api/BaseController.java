@@ -173,25 +173,37 @@ class SkuController {
 class ResetController {
 
     private final Actions actions;
-    private static final Logger logger = LoggerFactory.getLogger(ResetController.class);
+    private final Databasing db;    
+    private static final Logger logger = LoggerFactory.getLogger(SkuController.class);
 
-    public ResetController(Actions actions) {
+    public ResetController(Actions actions, Databasing db) {
         this.actions = actions;
+        this.db = db;
     }
 
     @PutMapping("/{lakesid}")
-    public ResponseEntity<DatabaseItem> resetItem(@PathVariable int lakesid) {
+    public ResponseEntity<?> resetItem(@PathVariable int lakesid) {
         try {
-            DatabaseItem result = actions.resetItem(lakesid);
-
-            if (result == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+            boolean success = actions.resetItem(lakesid);
+            
+            if (!success) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Failed to reset item - item not found or reset failed"));
             }
-
-            return ResponseEntity.ok(result);
+            
+            Map<String, Object> updatedItem = db.getData(lakesid, 1);
+            
+            if (updatedItem == null) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Item reset but failed to retrieve updated data"));
+            }
+            
+            return ResponseEntity.ok(updatedItem);
+            
         } catch (Exception e) {
-            logger.error("Reset failed for lakesid {}", lakesid, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            logger.error("Error resetting item {}: {}", lakesid, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Internal server error", "details", e.getMessage()));
         }
     }
 }
