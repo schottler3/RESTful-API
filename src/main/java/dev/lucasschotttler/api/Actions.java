@@ -28,29 +28,41 @@ public class Actions {
         this.db = db;
     }
 
-    public DatabaseItem resetItem(int lakesid){
+    public boolean resetItem(int lakesid){
 
         Map<String, Object> item = db.getData(lakesid, 1);
 
         if(item == null){
             logger.warn("Actions failed to reset lakesid: {} due to no results", lakesid);
-            return null;
+            return false;
         }
 
-        logger.info("Actions starting reset on item: {}", item);
+        logger.info("Actions starting update on item: {}", item);
         DatabaseItem dbItem = new DatabaseItem(item);
 
-        logger.info("Actions reset resolved dbItem for sku: {}", dbItem.sku);
+        logger.info("Actions update resolved dbItem for sku: {}", dbItem.sku);
 
         LakesItem lakesItem = Lakes.getLakesItem(dbItem.lakesid);
 
-        logger.info("Actions reset resolved lakesItem for sku: {}", lakesItem.sku);
+        logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
         
         db.resetItem(lakesItem);
 
         logger.info("Actions reset resolved resetItem on database for sku: {}", dbItem.sku);
 
-        return dbItem;
+        logger.info("Actions update pushing to amazon, sku: ()", dbItem.sku);
+        amazon.updateItem(dbItem);
+        logger.info("Actions update FINISHED pushing to amazon, sku: ()", dbItem.sku);
+
+        logger.info("Actions update updating inventory to ebay, sku: ()", dbItem.sku);
+        Ebay.createOrUpdateItem(dbItem);
+        logger.info("Actions update FINISHED updating inventory to ebay, sku: ()", dbItem.sku);
+
+        logger.info("Actions update offer to ebay, sku: ()", dbItem.sku);
+        Ebay.updateOffer(dbItem);
+        logger.info("Actions update FINISHED offer to ebay, sku: ()", dbItem.sku);
+
+        return true;
     }
 
     public boolean updateItem(int lakesid){
