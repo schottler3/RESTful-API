@@ -16,7 +16,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import dev.lucasschotttler.database.Databasing;
 import dev.lucasschotttler.lakes.Lakes;
-import dev.lucasschotttler.database.DatabaseItem;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -136,7 +135,7 @@ class SkuController {
                 String attribute = (String) change.get("attribute");
                 String newValue = (String) change.get("new");
 
-                if (lakesid == null || attribute == null) {
+                if (lakesid == null || attribute == null || newValue == null) {
                     logger.warn("Missing required fields in patch: " + i);
                     failures.add(change);
                     continue;
