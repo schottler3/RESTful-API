@@ -81,21 +81,37 @@ class SkuController {
     public ResponseEntity<?> dataRoot(
         @RequestParam(required = false) String SKU,
         @RequestParam(required = false) Integer limit,
-        @RequestParam(required = false) String keywords
+        @RequestParam(required = false) String keywords,
+        @RequestParam(required = false) String time
     ) {
         logger.info("Received request - SKU: " + SKU + ", Limit: " + limit + ", Keywords: " + keywords);
 
-        int resultLimit = (limit != null) ? limit : 100;
-        List<java.util.Map<String, Object>> results;
+        int resultLimit = (limit != null) ? limit : 1;
+        List<java.util.Map<String, Object>> results = null;
 
         try {
             if (SKU != null) {
                 logger.info("Fetching data by SKU...");
                 results = db.getData(SKU, resultLimit);
             } 
+            else if(time != null){
+                logger.info("Fetching data by time: {}", time);
+                if(time.equals("newest")){
+                    results = db.getLatest(resultLimit);
+                }
+                else if(time.equals("oldest")){
+                    results = db.getOldest(resultLimit);
+                }
+                else {
+                    logger.warn("Invalid time parameter: {}", time);
+                    return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Invalid time parameter. Use 'newest' or 'oldest'"));
+                }
+            }
             else {
                 logger.info("Fetching data by keywords...");
-                results = db.queryDatabase(keywords, resultLimit);
+                String searchKeywords = (keywords != null && !keywords.trim().isEmpty()) ? keywords : null;
+                results = db.queryDatabase(searchKeywords, resultLimit);
             }
 
             if (results != null && results.size() > 0) {
