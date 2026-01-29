@@ -1,6 +1,7 @@
 package dev.lucasschotttler.api;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
@@ -95,15 +96,16 @@ class SkuController {
             } 
             else {
                 logger.info("Fetching data by keywords...");
-                results = db.queryDatabase(keywords, resultLimit);
+                String searchKeywords = (keywords == null || keywords.trim().isEmpty()) ? null : keywords;
+                results = db.queryDatabase(searchKeywords, resultLimit);
             }
 
             if (results != null && results.size() > 0) {
-                logger.info("Data fetched successfully. Returning results.");
+                logger.info("Data fetched successfully. Returning {} results.", results.size());
                 return ResponseEntity.ok(results);
             } else {
-                logger.warn("No data found for the given parameters.");
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("404: Not Found");
+                logger.info("No data found for the given parameters. Returning empty array.");
+                return ResponseEntity.ok(new ArrayList<>());
             }
         } catch (IllegalArgumentException e) {
             logger.error("Invalid argument: " + e.getMessage(), e);
