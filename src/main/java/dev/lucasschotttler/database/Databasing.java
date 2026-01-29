@@ -202,6 +202,16 @@ public class Databasing {
         }
     }
 
+    public List<java.util.Map<String, Object>> getLatest(int limit) {
+        String sql = "SELECT * FROM superior ORDER BY updated_at DESC LIMIT ?";
+        return jdbcTemplate.queryForList(sql, limit);
+    }
+
+    public List<java.util.Map<String, Object>> getOldest(int limit) {
+        String sql = "SELECT * FROM superior ORDER BY updated_at ASC LIMIT ?";
+        return jdbcTemplate.queryForList(sql, limit);
+    }
+
     public List<String> getImages(String SKU) {
         String sql = "SELECT milwaukee_images FROM superior WHERE sku LIKE ?";
         String pattern = "%" + SKU + "%";
