@@ -1,8 +1,10 @@
 package dev.lucasschotttler.database;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -63,12 +65,35 @@ public class Databasing {
         return jdbcTemplate.queryForMap(sql, lakesid);
     }
 
-    public List<java.util.Map<String, Object>> queryDatabase(String query, int limit) {
-        
-        if (query == null || query.trim().isEmpty()) {
-            return jdbcTemplate.queryForList("SELECT * FROM superior ORDER BY lakesid ASC LIMIT ?", limit);
-        }
+    public List<Map<String, Object>> queryDatabase(String query, int limit, String time) {
 
+        String order = "lakesid ASC";
+
+        if(time != null){
+            if(time.equals("newest")){
+                order = "updated_at DESC";
+            }
+            else if(time.equals("oldest")){
+                order = "updated_at ASC";
+            }
+        }
+        
+        // Handle empty query - return all results with ordering
+        if (query == null || query.trim().isEmpty()) {
+            // Must use string concatenation for ORDER BY and LIMIT
+            String sql = "SELECT * FROM superior ORDER BY " + order + " LIMIT " + limit;
+            return jdbcTemplate.queryForList(sql);
+        }
+        
+        // Try exact SKU match first
+        String exactMatchSql = "SELECT * FROM superior WHERE sku = ? ORDER BY " + order + " LIMIT " + limit;
+        List<Map<String, Object>> result = jdbcTemplate.queryForList(exactMatchSql, query);
+        
+        if(!result.isEmpty()){
+            return result;
+        }
+        
+        // Fall back to fuzzy search across all fields
         String sql = "SELECT * FROM superior WHERE" +
                 " CAST(lakesid AS TEXT) ILIKE ? OR" +
                 " CAST(width AS TEXT) ILIKE ? OR" +
@@ -82,21 +107,15 @@ public class Databasing {
                 " upc ILIKE ? OR" +
                 " CAST(quantity AS TEXT) ILIKE ? OR" +
                 " sku ILIKE ? OR" +
-                " CAST(updated_at AS TEXT) ILIKE ? ORDER BY lakesid ASC LIMIT ?";
+                " CAST(updated_at AS TEXT) ILIKE ?" +
+                " ORDER BY " + order + " LIMIT " + limit;
 
         String pattern = "%" + query + "%";
-        Object[] params = new Object[14];
-        Arrays.fill(params, 0, 12, pattern);
-        params[12] = pattern;
-        params[13] = limit;
+        Object[] params = new Object[13];
+        Arrays.fill(params, 0, 13, pattern);
 
-        List<java.util.Map<String, Object>> results = jdbcTemplate.queryForList(sql, params);
-        if(results.size() <= 0){
-            return null;
-        }
-        else{
-            return results;
-        }
+        List<Map<String, Object>> results = jdbcTemplate.queryForList(sql, params);
+        return results.isEmpty() ? new ArrayList<>() : results;
     }
 
     public boolean patchItem(Integer lakesid, String attribute, String data) {
@@ -200,16 +219,6 @@ public class Databasing {
             logger.error("Failed to reset item {}: {}", lakesItem.lakesid, e.getMessage());
             return false;
         }
-    }
-
-    public List<java.util.Map<String, Object>> getLatest(int limit) {
-        String sql = "SELECT * FROM superior ORDER BY updated_at DESC LIMIT ?";
-        return jdbcTemplate.queryForList(sql, limit);
-    }
-
-    public List<java.util.Map<String, Object>> getOldest(int limit) {
-        String sql = "SELECT * FROM superior ORDER BY updated_at ASC LIMIT ?";
-        return jdbcTemplate.queryForList(sql, limit);
     }
 
     public List<String> getImages(String SKU) {

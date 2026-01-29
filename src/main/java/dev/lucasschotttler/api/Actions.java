@@ -101,7 +101,7 @@ public class Actions {
 
     public void updateInventory(){
         logger.info("Actions getting database...");
-        List<Map<String, Object>> data = db.queryDatabase("", 10000);
+        List<Map<String, Object>> data = db.queryDatabase(null, 12000, null);
         logger.info("Actions received database with {} items", data.size());
 
         if(data.isEmpty()){

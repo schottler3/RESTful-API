@@ -80,56 +80,41 @@ class SkuController {
 
     @GetMapping({ "", "/" })
     public ResponseEntity<?> dataRoot(
-        @RequestParam(required = false) String SKU,
-        @RequestParam(required = false) Integer limit,
+        @RequestParam(required = false) String limit,
         @RequestParam(required = false) String keywords,
         @RequestParam(required = false) String time
     ) {
-        logger.info("Received request - SKU: " + SKU + ", Limit: " + limit + ", Keywords: " + keywords);
+        logger.info("Received request -  Limit: " + limit + ", Keywords: " + keywords);
 
-        int resultLimit = (limit != null) ? limit : 1;
+        int resultLimit = 20;
+        
+        if (limit != null && !limit.trim().isEmpty()) {
+            if (limit.equalsIgnoreCase("All")) {
+                resultLimit = Integer.MAX_VALUE;
+            } else {
+                try {
+                    resultLimit = Integer.parseInt(limit);
+                } catch (NumberFormatException e) {
+                    logger.warn("Invalid limit parameter: {}", limit);
+                    return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Invalid limit parameter. Must be a number or 'All'"));
+                }
+            }
+        }
+
         List<java.util.Map<String, Object>> results = null;
 
         try {
-            if (SKU != null) {
-                logger.info("Fetching data by SKU...");
-                results = db.getData(SKU, resultLimit);
-            } 
-            else if(time != null){
-                logger.info("Fetching data by time: {}", time);
-                if(time.equals("newest")){
-                    results = db.getLatest(resultLimit);
-                }
-                else if(time.equals("oldest")){
-                    results = db.getOldest(resultLimit);
-                }
-                else {
-                    logger.warn("Invalid time parameter: {}", time);
-                    return ResponseEntity.badRequest()
-                        .body(Map.of("error", "Invalid time parameter. Use 'newest' or 'oldest'"));
-                }
-            }
-            else {
-                logger.info("Fetching data by keywords...");
-                String searchKeywords = (keywords == null || keywords.trim().isEmpty()) ? null : keywords;
-                results = db.queryDatabase(searchKeywords, resultLimit);
-            }
-
-            if (results != null && results.size() > 0) {
-                logger.info("Data fetched successfully. Returning {} results.", results.size());
-                return ResponseEntity.ok(results);
-            } else {
-                logger.info("No data found for the given parameters. Returning empty array.");
-                return ResponseEntity.ok(new ArrayList<>());
-            }
+            results = db.queryDatabase(keywords, resultLimit, time);
+            return ResponseEntity.ok(results);
         } catch (IllegalArgumentException e) {
             logger.error("Invalid argument: " + e.getMessage(), e);
             return ResponseEntity.badRequest()
-                .body("{\"error\":\"" + e.getMessage() + "\"}");
+                .body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             logger.error("Unexpected error occurred", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("{\"error\":\"Internal server error\"}");
+                .body(Map.of("error", "Internal server error"));
         }
     }
 
