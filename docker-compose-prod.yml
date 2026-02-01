@@ -8,6 +8,7 @@ services:
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: superior
+      POSTGRES_INITDB_ARGS: "-c max_connections=50" # Limit PostgreSQL connections
     ports:
       - "5432:5432"
     volumes:
@@ -20,6 +21,19 @@ services:
       retries: 5
     networks:
       - app-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   redis:
     image: redis:7-alpine
     container_name: redis-dev
@@ -40,6 +54,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
   api:
     build: .
     container_name: api
@@ -51,6 +66,8 @@ services:
       DB_NAME: superior
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
+      DB_MAX_CONNECTIONS: 20
+      DB_CONNECTION_TIMEOUT: 30000
       API_KEY: ${API_KEY}
       AMAZON_SELLER_ID: ${AMAZON_SELLER_ID}
       AMAZON_IDENTIFIER: ${AMAZON_IDENTIFIER}
@@ -78,6 +95,24 @@ services:
     restart: unless-stopped
     networks:
       - app-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1.5G
+        reservations:
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   nextjs-app:
     build:
@@ -86,15 +121,32 @@ services:
     container_name: nextjs-app
     env_file:
       - /home/schottler3/superior-tool/.env.local
-    expose:
-      - "8080"
-    volumes:
-      - /home/schottler3/superior-tool:/app
-      - /app/node_modules
-      - /app/.next
+    ports:
+      - "3000:8080"
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
     restart: unless-stopped
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   nginx:
     image: nginx:alpine
@@ -111,6 +163,18 @@ services:
     restart: unless-stopped
     networks:
       - app-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres-data:
