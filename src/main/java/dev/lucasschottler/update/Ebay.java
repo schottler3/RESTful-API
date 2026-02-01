@@ -1,4 +1,4 @@
-package dev.lucasschotttler.update;
+package dev.lucasschottler.update;
 
 import java.io.IOException;
 import java.net.URI;
@@ -11,13 +11,14 @@ import java.util.Base64;
 import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import dev.lucasschottler.database.DatabaseItem;
+
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-
-import dev.lucasschotttler.database.DatabaseItem;
 
 @Service
 public class Ebay {

@@ -1,4 +1,4 @@
-package dev.lucasschotttler.lakes;
+package dev.lucasschottler.lakes;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

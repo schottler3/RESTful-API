@@ -1,4 +1,4 @@
-package dev.lucasschotttler.api.security;
+package dev.lucasschottler.api.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

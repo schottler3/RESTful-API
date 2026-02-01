@@ -1,4 +1,4 @@
-package dev.lucasschotttler.api;
+package dev.lucasschottler.api;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

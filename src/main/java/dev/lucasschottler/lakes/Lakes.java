@@ -1,4 +1,4 @@
-package dev.lucasschotttler.lakes;
+package dev.lucasschottler.lakes;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import org.springframework.stereotype.Service;
 
-import dev.lucasschotttler.update.Ebay;
+import dev.lucasschottler.update.Ebay;
 
 @Service
 public class Lakes {

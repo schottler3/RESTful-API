@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16
@@ -17,11 +15,34 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      
+  redis:
+    image: redis:7-alpine
+    container_name: redis-dev
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   api:
     build: .
     container_name: api-dev
     environment:
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: superior
@@ -29,25 +50,18 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       API_KEY: ${API_KEY}
       AMAZON_SELLER_ID: ${AMAZON_SELLER_ID}
-
       AMAZON_IDENTIFIER: ${AMAZON_IDENTIFIER}
       AMAZON_CLIENT_SECRET: ${AMAZON_CLIENT_SECRET}
       AMAZON_TOKEN: ${AMAZON_TOKEN}
-
       EBAY_DEVID: ${EBAY_DEVID}
-
       EBAY_APPID: ${EBAY_APPID}
       EBAY_CERTID: ${EBAY_CERTID}
-
       EBAY_TOKEN: ${EBAY_TOKEN}
       EBAY_REFRESH_TOKEN: ${EBAY_REFRESH_TOKEN}
-
       EBAY_INVENTORY_API_END: ${EBAY_INVENTORY_API_END}
       EBAY_IDENTITY_END: ${EBAY_IDENTITY_END}
-
       EBAY_PAYMENT_REGULAR_POLICY: ${EBAY_PAYMENT_REGULAR_POLICY}
       EBAY_RETURN_POLICY: ${EBAY_RETURN_POLICY}
-
       EBAY_FULFILLMENT_DROP_ADVANTAGE_POLICY: ${EBAY_FULFILLMENT_DROP_ADVANTAGE_POLICY}
       EBAY_FULFILLMENT_DROP_ECONOMY_POLICY: ${EBAY_FULFILLMENT_DROP_ECONOMY_POLICY}
       EBAY_FULFILLMENT_STOCK_POLICY: ${EBAY_FULFILLMENT_STOCK_POLICY}
@@ -55,6 +69,8 @@ services:
       - "8080:8080"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
 

@@ -1,4 +1,4 @@
-package dev.lucasschotttler.database;
+package dev.lucasschottler.database;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -10,8 +10,8 @@ import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
-import dev.lucasschotttler.lakes.LakesItem;
-import dev.lucasschotttler.update.Amazon;
+import dev.lucasschottler.lakes.LakesItem;
+import dev.lucasschottler.update.Amazon;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

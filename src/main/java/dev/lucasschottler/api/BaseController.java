@@ -1,22 +1,22 @@
-package dev.lucasschotttler.api;
+package dev.lucasschottler.api;
 
 import java.util.List;
-import java.util.ArrayList;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import dev.lucasschotttler.database.Databasing;
-import dev.lucasschotttler.lakes.Lakes;
+import dev.lucasschottler.database.Databasing;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,24 +40,6 @@ public class BaseController {
 @RestController
 @RequestMapping("/superior")
 class SuperiorController {
-
-    private final Actions actions;
-    private static final Logger logger = LoggerFactory.getLogger(SkuController.class);
-
-    public SuperiorController(Actions actions) {
-        this.actions = actions;
-    }
-
-    @GetMapping("/update")
-    public ResponseEntity<String> update() {
-        try {
-            actions.updateInventory();
-            return ResponseEntity.ok("Inventory updated successfully");
-        } catch (Exception e){
-            logger.error("This shouldn't be possible atm, error: {}", e);
-        }
-        return null;
-    }
 
     @GetMapping("/health")
     public ResponseEntity<String> health() {
@@ -213,19 +195,70 @@ class ResetController {
 @RequestMapping("/superior/data/update")
 class UpdateController {
 
+    private static final Logger logger = LoggerFactory.getLogger(UpdateController.class);
+    private static final String IS_UPDATING_KEY = "isUpdating";
+    
+    private final StateService stateService;
     private final Actions actions;
 
-    public UpdateController(Actions actions) {
+    public UpdateController(StateService stateService, Actions actions) {
+        this.stateService = stateService;
         this.actions = actions;
     }
 
-    @PutMapping("/{lakesid}")
-    public ResponseEntity<Boolean> updateItem(@PathVariable int lakesid) {
+    @GetMapping({"", "/"})
+    public ResponseEntity<String> isUpdating() {
+        String state = stateService.getState(IS_UPDATING_KEY);
+        logger.info("Current State: {}", state);
+        
+        // Initialize state if null
+        if (state == null) {
+            stateService.setState(IS_UPDATING_KEY, "false");
+            state = "false";
+        }
+        
+        return ResponseEntity.ok(state);
+    }
+
+    @PostMapping("/start")
+    public ResponseEntity<String> startUpdate() {
         try {
-            boolean result = actions.updateItem(lakesid);
-            return ResponseEntity.ok(result);
+            String currentState = stateService.getState(IS_UPDATING_KEY);
+            
+            if (currentState == null || currentState.equals("false")) {
+                stateService.setState(IS_UPDATING_KEY, "true");
+            } else if (currentState.equals("true")) {
+                return ResponseEntity.status(409).body("Update already in progress");
+            }
+            
+            logger.info("Starting inventory update process");
+        
+            actions.updateInventory();
+            logger.info("Inventory update completed successfully");
+            return ResponseEntity.ok("Inventory updated successfully");
+                
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(false);
+            logger.error("Error occurred during update process", e);
+            // Ensure state is reset even if finally block somehow fails
+            try {
+                stateService.setState(IS_UPDATING_KEY, "false");
+            } catch (Exception ex) {
+                logger.error("Failed to reset state after error", ex);
+            }
+            return ResponseEntity.status(500).body("Error updating inventory: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/stop")
+    public ResponseEntity<String> stopUpdate() {
+        try {
+            stateService.setState(IS_UPDATING_KEY, "false");
+            logger.info("Update process stopped");
+            return ResponseEntity.ok("Update process stopped successfully");
+            
+        } catch (Exception e) {
+            logger.error("Error occurred while stopping update process", e);
+            return ResponseEntity.status(500).body("Error stopping update: " + e.getMessage());
         }
     }
 }

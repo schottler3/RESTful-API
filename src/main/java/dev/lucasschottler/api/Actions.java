@@ -1,4 +1,4 @@
-package dev.lucasschotttler.api;
+package dev.lucasschottler.api;
 
 import java.util.List;
 import java.util.Map;
@@ -10,22 +10,25 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import dev.lucasschotttler.database.Databasing;
-import dev.lucasschotttler.lakes.Lakes;
-import dev.lucasschotttler.lakes.LakesItem;
-import dev.lucasschotttler.update.Amazon;
-import dev.lucasschotttler.update.Ebay;
-import dev.lucasschotttler.database.DatabaseItem;
+
+import dev.lucasschottler.database.DatabaseItem;
+import dev.lucasschottler.database.Databasing;
+import dev.lucasschottler.lakes.Lakes;
+import dev.lucasschottler.lakes.LakesItem;
+import dev.lucasschottler.update.Amazon;
+import dev.lucasschottler.update.Ebay;
 
 @Service
 public class Actions {
     
     private final Databasing db;
     private static final Logger logger = LoggerFactory.getLogger(Actions.class);
+    private final StateService stateService;
     Amazon amazon = new Amazon();
 
-    public Actions(Databasing db, Lakes lakes){
+    public Actions(Databasing db, Lakes lakes, StateService stateService){
         this.db = db;
+        this.stateService = stateService;
     }
 
     public boolean resetItem(int lakesid){
@@ -99,47 +102,59 @@ public class Actions {
         return true;
     }
 
-    public void updateInventory(){
+    public void updateInventory() {
         logger.info("Actions getting database...");
         List<Map<String, Object>> data = db.queryDatabase(null, 12000, null);
         logger.info("Actions received database with {} items", data.size());
 
-        if(data.isEmpty()){
+        if (data.isEmpty()) {
             logger.warn("Actions database data is empty!");
+            stateService.setState("isUpdating", "false");
             return;
         }
 
         ExecutorService executor = Executors.newFixedThreadPool(12);
-        
-        List<CompletableFuture<Void>> futures = data.stream()
-            .map(item -> CompletableFuture.runAsync(() -> {
-                try {
-                    processItem(item);
-                } catch (Exception e) {
-                    logger.error("Actions error processing item: {}, error: {}", item, e.getMessage());
-                }
-            }, executor))
-            .collect(Collectors.toList());
 
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-        
-        executor.shutdown();
-        logger.info("Actions all items processed");
+        try {
+            List<CompletableFuture<Void>> futures = data.stream()
+                .map(item -> CompletableFuture.runAsync(() -> {
+                    try {
+                        if ("false".equals(stateService.getState("isUpdating"))) {
+                            logger.info("Actions updateInventory cancelled, stopping early");
+                            return;
+                        }
+                        processItem(item);
+                    } catch (Exception e) {
+                        logger.error("Actions error processing item: {}, error: {}", item, e.getMessage());
+                    }
+                }, executor))
+                .collect(Collectors.toList());
+
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        } finally {
+            executor.shutdown();
+            stateService.setState("isUpdating", "false");
+            logger.info("Actions all items processed");
+        }
     }
 
     private void processItem(Map<String, Object> item) {
-        logger.info("Actions starting on item: {}", item);
-        DatabaseItem dbItem = new DatabaseItem(item);
+        try {
+            logger.info("Actions starting on item: {}", item);
+            DatabaseItem dbItem = new DatabaseItem(item);
 
-        LakesItem lakesItem = Lakes.getLakesItem(dbItem.lakesid);
-        
-        dbItem.updateItem(lakesItem, db);
+            LakesItem lakesItem = Lakes.getLakesItem(dbItem.lakesid);
 
-        amazon.updateItem(dbItem);
+            dbItem.updateItem(lakesItem, db);
 
-        Ebay.updateItem(dbItem);
+            amazon.updateItem(dbItem);
 
-        logger.info("Actions completed processing sku: {}", dbItem.sku);
+            Ebay.updateItem(dbItem);
+
+            logger.info("Actions completed processing sku: {}", dbItem.sku);
+        } catch (Exception e) {
+            logger.error("Error processing item: {}", item, e);
+        }
     }
 
 }

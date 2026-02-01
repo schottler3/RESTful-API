@@ -1,4 +1,4 @@
-package dev.lucasschotttler.database;
+package dev.lucasschottler.database;
 
 import java.sql.Timestamp;
 import java.util.HashMap;
@@ -7,9 +7,9 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import dev.lucasschotttler.api.BaseController;
-import dev.lucasschotttler.lakes.LakesItem;
-import dev.lucasschotttler.update.Amazon;
+import dev.lucasschottler.api.BaseController;
+import dev.lucasschottler.lakes.LakesItem;
+import dev.lucasschottler.update.Amazon;
 
 public class DatabaseItem {
 

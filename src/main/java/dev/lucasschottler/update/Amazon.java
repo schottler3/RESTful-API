@@ -1,4 +1,4 @@
-package dev.lucasschotttler.update;
+package dev.lucasschottler.update;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -6,9 +6,10 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 
-import dev.lucasschotttler.database.DatabaseItem;
+import dev.lucasschottler.database.DatabaseItem;
+
+import com.fasterxml.jackson.databind.node.ArrayNode;
 
 import java.net.URI;
 import java.net.http.HttpClient;

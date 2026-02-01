@@ -1,4 +1,4 @@
-package dev.lucasschotttler.api;
+package dev.lucasschottler.api;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

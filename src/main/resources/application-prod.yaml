@@ -12,10 +12,13 @@ spring:
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
+  redis:
+    host: ${SPRING_REDIS_HOST:localhost}
+    port: ${SPRING_REDIS_PORT:6379}
 logging:
   level:
     root: INFO
-    dev.lucasschotttler: INFO
+    dev.lucasschottler: INFO
 server:
   error:
     include-message: never
