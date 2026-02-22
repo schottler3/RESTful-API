@@ -251,4 +251,12 @@ public class DatabaseItem {
                 '}';
     }
 
+    public String getCleanTitle() {
+        return title != null ? StringEscapeUtils.unescapeHtml4(title) : null;
+    }
+    
+    public String getCleanDescription() {
+        return description != null ? StringEscapeUtils.unescapeHtml4(description) : null;
+    }
+
 }

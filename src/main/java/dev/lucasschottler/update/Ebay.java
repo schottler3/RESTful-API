@@ -148,10 +148,9 @@ public class Ebay {
         // Add image URLs
         ArrayNode imageUrls = product.putArray("imageUrls");
         if (dbItem.milwaukee_images != null && !dbItem.milwaukee_images.isEmpty()) {
-            imageUrls.add(dbItem.milwaukee_images);
-        }
-        if (dbItem.lakes_images != null && !dbItem.lakes_images.isEmpty()) {
-            imageUrls.add(dbItem.lakes_images);
+            for (String url : dbItem.milwaukee_images.split(",")) {
+                imageUrls.add(url.trim());
+            }
         }
         
         // Build root object

@@ -235,21 +235,40 @@ public class Amazon {
 
         if(dbItem.milwaukee_images != null){
             String[] milwaukee_images = dbItem.milwaukee_images.split(",");
+            
+            // Trim whitespace from URLs
+            milwaukee_images = java.util.Arrays.stream(milwaukee_images)
+                .map(String::trim)
+                .filter(url -> !url.isEmpty())
+                .toArray(String[]::new);
 
             if(milwaukee_images.length > 0){
+                
+                // Set main product image (first image)
+                ObjectNode mainImagePatch = mapper.createObjectNode();
+                mainImagePatch.put("op", "replace");
+                mainImagePatch.put("path", "/attributes/main_product_image_locator");
+                
+                ArrayNode mainImageArr = mapper.createArrayNode();
+                ObjectNode mainImageObj = mapper.createObjectNode();
+                mainImageObj.put("media_location", milwaukee_images[0]);
+                mainImageObj.put("marketplace_id", MARKETPLACE_ID);
+                mainImageArr.add(mainImageObj);
+                
+                mainImagePatch.set("value", mainImageArr);
+                patches.add(mainImagePatch);
 
-                if(milwaukee_images.length > 9){
-                    milwaukee_images = java.util.Arrays.copyOf(milwaukee_images, 9);
-                }
-
-                for (int i = 1; i < milwaukee_images.length; i++) {
+                // Set additional images (remaining images)
+                int maxAdditionalImages = Math.min(milwaukee_images.length - 1, 8); // Amazon allows up to 8 additional images
+                
+                for (int i = 0; i < maxAdditionalImages; i++) {
                     ObjectNode imagePatch = mapper.createObjectNode();
                     imagePatch.put("op", "replace");
-                    imagePatch.put("path", "/attributes/other_product_image_locator_" + i);
+                    imagePatch.put("path", "/attributes/other_product_image_locator_" + (i + 1));
 
                     ArrayNode valueArr = mapper.createArrayNode();
                     ObjectNode valueObj = mapper.createObjectNode();
-                    valueObj.put("media_location", milwaukee_images[i]);
+                    valueObj.put("media_location", milwaukee_images[i + 1]); // Start from second image
                     valueObj.put("marketplace_id", MARKETPLACE_ID);
                     valueArr.add(valueObj);
 

@@ -261,6 +261,12 @@ class UpdateController {
             return ResponseEntity.status(500).body("Error stopping update: " + e.getMessage());
         }
     }
+
+    @PostMapping("/{lakesid}")
+    public ResponseEntity<String> updateItem(@PathVariable int lakesid) {
+        actions.updateItem(lakesid);
+        return ResponseEntity.ok("Item updated successfully");
+    }
 }
 
 @RestController
