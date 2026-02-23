@@ -115,9 +115,7 @@ services:
       start_period: 40s
 
   nextjs-app:
-    build:
-      context: /home/schottler3/superior-tool
-      dockerfile: Dockerfile
+    image: schottler3/superior-tool:latest
     container_name: nextjs-app
     env_file:
       - /home/schottler3/superior-tool/.env.local
