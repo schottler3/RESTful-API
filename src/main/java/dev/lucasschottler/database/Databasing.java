@@ -226,4 +226,24 @@ public class Databasing {
         String pattern = "%" + SKU + "%";
         return jdbcTemplate.queryForList(sql, String.class, pattern);
     }
+
+    public List<java.util.Map<String, Object>> getBom(int lakesid){
+        String sql = "SELECT * FROM bom WHERE parent_id = ?";
+
+        return jdbcTemplate.queryForList(sql, lakesid);
+    }
+
+    public boolean addBom(Integer parent_id, Integer child_id, Double quantity){
+
+        logger.info("Adding BOM item to parent {}: {} q: {}", parent_id, child_id, quantity);
+
+        try{
+            String sql = "INSERT INTO bom (parent_id, child_id, quantity) VALUES (?, ?, ?)";
+
+            return jdbcTemplate.update(sql, parent_id, child_id, quantity) > 0;
+        } catch (Exception e) {
+            logger.error("Error adding BOM item to parent {}: {} q: {} e: {}", parent_id, child_id, quantity, e);
+            return false;
+        }
+    }
 }

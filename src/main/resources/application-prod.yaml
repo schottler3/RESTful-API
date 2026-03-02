@@ -12,19 +12,19 @@ spring:
       connection-timeout: 30000
       idle-timeout: 600000
       max-lifetime: 1800000
-  redis:
-    host: ${SPRING_REDIS_HOST:localhost}
-    port: ${SPRING_REDIS_PORT:6379}
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+  web:
+    error:
+      include-message: never
+      include-stacktrace: never
 logging:
   level:
     root: INFO
-    dev.lucasschottler: INFO
+    "[dev.lucasschottler]": INFO
 server:
-  error:
-    include-message: never
-    include-stacktrace: never
   port: 8080
   compression:
     enabled: true
-api:
-  key: ${API_KEY}
