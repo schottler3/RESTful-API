@@ -238,12 +238,26 @@ public class Databasing {
         logger.info("Adding BOM item to parent {}: {} q: {}", parent_id, child_id, quantity);
 
         try{
-            String sql = "INSERT INTO bom (parent_id, child_id, quantity) VALUES (?, ?, ?)";
+            String sql = "INSERT INTO bom (parent_id, child_id, quantity) VALUES (?, ?, ?) " +
+                        "ON CONFLICT (parent_id, child_id) " +
+                        "DO UPDATE SET quantity = EXCLUDED.quantity";
 
             return jdbcTemplate.update(sql, parent_id, child_id, quantity) > 0;
         } catch (Exception e) {
             logger.error("Error adding BOM item to parent {}: {} q: {} e: {}", parent_id, child_id, quantity, e);
             return false;
+        }
+    }
+
+    public int removeBom(Integer parent_id, Integer child_id){
+        logger.info("Removing BOM item to parent {}: {}", parent_id, child_id);
+
+        try{
+            String sql = "DELETE FROM bom WHERE parent_id = ? AND child_id = ?";
+            return jdbcTemplate.update(sql, parent_id, child_id);
+        } catch (Exception e) {
+            logger.error("Error removing BOM item to parent {}: {} e: {}", parent_id, child_id, e);
+            return -1;
         }
     }
 }

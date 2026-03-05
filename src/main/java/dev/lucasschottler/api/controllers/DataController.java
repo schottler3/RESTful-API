@@ -1,8 +1,10 @@
-package dev.lucasschottler.api;
+package dev.lucasschottler.api.controllers;
 
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,51 +17,27 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import dev.lucasschottler.api.Actions;
 import dev.lucasschottler.database.Databasing;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-@RestController
-public class BaseController {
-
-    @GetMapping("/")
-    public ResponseEntity<String> endpoints() {
-        String endpointInfo = """
-            {"endpoints": 
-                [
-                    "superior"
-                ]
-            }
-        """;
-        return ResponseEntity.status(HttpStatus.OK).body(endpointInfo);
-    }
-}
+import dev.lucasschottler.api.StateService;
 
 @RestController
 @RequestMapping("/superior")
-class SuperiorController {
-
-    @GetMapping("/health")
-    public ResponseEntity<String> health() {
-        return ResponseEntity.ok("{\"status\":\"UP\"}");
-    }
-}
-
-@RestController
-@RequestMapping("/superior/data")
-class SkuController {
+public class DataController {
 
     private final Databasing db;
     private final Actions actions;
-    private static final Logger logger = LoggerFactory.getLogger(SkuController.class);
+    private final StateService stateService;
+    private static final Logger logger = LoggerFactory.getLogger(DataController.class);
+    private static final String IS_UPDATING_KEY = "isUpdating";
 
-    public SkuController(Databasing db, Actions actions) {
+    public DataController(Databasing db, Actions actions, StateService stateService) {
         this.db = db;
         this.actions = actions;
+        this.stateService = stateService;
     }
 
-    @GetMapping({ "", "/" })
+    @GetMapping({ "/data" })
     public ResponseEntity<?> dataRoot(
         @RequestParam(required = false) String limit,
         @RequestParam(required = false) String keywords,
@@ -99,7 +77,7 @@ class SkuController {
         }
     }
 
-    @PatchMapping({"", "/"})
+    @PatchMapping({"/data"})
     public ResponseEntity<?> patchRoot(@RequestBody(required = true) List<Map<String, Object>> requestBody) {
 
         if (requestBody == null || requestBody.isEmpty()) {
@@ -148,22 +126,12 @@ class SkuController {
         }
     }
 
-}
-
-@RestController
-@RequestMapping("/superior/data/reset")
-class ResetController {
-
-    private final Actions actions;
-    private final Databasing db;    
-    private static final Logger logger = LoggerFactory.getLogger(SkuController.class);
-
-    public ResetController(Actions actions, Databasing db) {
-        this.actions = actions;
-        this.db = db;
+    @GetMapping("/data/item/{lakesid}")
+    public Map<String, Object> getItem(@PathVariable int lakesid) {
+        return db.getData(lakesid, 1);
     }
 
-    @PutMapping("/{lakesid}")
+    @PutMapping("/reset/{lakesid}")
     public ResponseEntity<?> resetItem(@PathVariable int lakesid) {
         try {
             boolean success = actions.resetItem(lakesid);
@@ -188,24 +156,8 @@ class ResetController {
                 .body(Map.of("error", "Internal server error", "details", e.getMessage()));
         }
     }
-}
 
-@RestController
-@RequestMapping("/superior/data/update")
-class UpdateController {
-
-    private static final Logger logger = LoggerFactory.getLogger(UpdateController.class);
-    private static final String IS_UPDATING_KEY = "isUpdating";
-    
-    private final StateService stateService;
-    private final Actions actions;
-
-    public UpdateController(StateService stateService, Actions actions) {
-        this.stateService = stateService;
-        this.actions = actions;
-    }
-
-    @GetMapping({"", "/"})
+    @GetMapping({"/update"})
     public ResponseEntity<String> isUpdating() {
         String state = stateService.getState(IS_UPDATING_KEY);
         logger.info("Current State: {}", state);
@@ -219,7 +171,7 @@ class UpdateController {
         return ResponseEntity.ok(state);
     }
 
-    @PostMapping("/start")
+    @PostMapping("/update/start")
     public ResponseEntity<String> startUpdate() {
         try {
             String currentState = stateService.getState(IS_UPDATING_KEY);
@@ -234,6 +186,7 @@ class UpdateController {
         
             actions.updateInventory();
             logger.info("Inventory update completed successfully");
+            stateService.setState(IS_UPDATING_KEY, "false");
             return ResponseEntity.ok("Inventory updated successfully");
                 
         } catch (Exception e) {
@@ -248,7 +201,7 @@ class UpdateController {
         }
     }
 
-    @PostMapping("/stop")
+    @PostMapping("/update/stop")
     public ResponseEntity<String> stopUpdate() {
         try {
             stateService.setState(IS_UPDATING_KEY, "false");
@@ -261,95 +214,9 @@ class UpdateController {
         }
     }
 
-    @PostMapping("/{lakesid}")
+    @PostMapping("/update/{lakesid}")
     public ResponseEntity<String> updateItem(@PathVariable int lakesid) {
         actions.updateItem(lakesid);
         return ResponseEntity.ok("Item updated successfully");
-    }
-}
-
-@RestController
-@RequestMapping("/superior/images")
-class ImageController {
-
-    private final Databasing db;
-
-    public ImageController(Databasing db) {
-        this.db = db;
-    }
-
-    @GetMapping("/{SKU}")
-    public ResponseEntity<List<String>> tools(@PathVariable String SKU) {
-        return ResponseEntity.status(HttpStatus.OK).body(db.getImages(SKU));
-    }
-}
-
-@RestController
-@RequestMapping("/superior/bom")
-class BomController {
-
-    private final Databasing db;
-    private static final Logger logger = LoggerFactory.getLogger(BomController.class);
-
-    public BomController(Databasing db) {
-        this.db = db;
-    }
-
-    @GetMapping("/{lakesid}")
-    public ResponseEntity<List<Map<String, Object>>> getBomData(@PathVariable int lakesid) {
-        return ResponseEntity.status(HttpStatus.OK).body(db.getBom(lakesid));
-    }
-
-    @PutMapping(value = "/add/{lakesid}", consumes = "application/json")
-    public ResponseEntity<?> addBomDependencies(@PathVariable Integer lakesid, @RequestBody(required = true) List<Map<String, Object>> requestBody) {
-
-        if (requestBody == null || requestBody.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Request body is missing or empty"));
-        }
-
-        logger.info("Received PUT request with {} bom items", requestBody.size());
-
-        List<Map<String, Object>> failures = new java.util.ArrayList<>();
-
-        try {
-            for (int i = 0; i < requestBody.size(); i++) {
-                Map<String, Object> bomItem = requestBody.get(i);
-                Integer child_id = (Integer) bomItem.get("child_id");
-                Object quantityObj = bomItem.get("quantity");
-                
-                Double quantity = null;
-                if (quantityObj instanceof Integer) {
-                    quantity = ((Integer) quantityObj).doubleValue();
-                } else if (quantityObj instanceof Double) {
-                    quantity = (Double) quantityObj;
-                } else if (quantityObj instanceof Number) {
-                    quantity = ((Number) quantityObj).doubleValue();
-                }
-
-                if (child_id == null || quantity == null) {
-                    logger.warn("Missing required fields in PUT: " + i);
-                    failures.add(bomItem);
-                    continue;
-                }
-                
-                logger.info("Attempt on bom addition - parent_id: {}, child_id: {}, quantity: {}", lakesid, child_id, quantity);
-                if(db.addBom(lakesid, child_id, quantity)){
-                    logger.info("Success on bom addition - parent_id: {}, child_id: {}, quantity: {}", lakesid, child_id, quantity);
-                } else {
-                    logger.info("Failure on bom addition - parent_id: {}, child_id: {}, quantity: {}", lakesid, child_id, quantity);
-                    failures.add(bomItem);
-                }
-            }
-            
-            if(failures.isEmpty()){
-                return ResponseEntity.ok(Map.of("message", "All PUTs processed successfully"));
-            } else {
-                return ResponseEntity.status(HttpStatus.MULTI_STATUS).body(Map.of("failures", failures));
-            }
-        } catch (Exception e) {
-            logger.error("Error processing Put request", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Internal server error"));
-        }
     }
 }
