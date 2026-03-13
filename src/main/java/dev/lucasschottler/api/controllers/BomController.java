@@ -1,4 +1,4 @@
-package dev.lucasschottler.api;
+package dev.lucasschottler.api.controllers;
 
 import java.util.List;
 import java.util.Map;
@@ -64,7 +64,7 @@ class BomController {
                     continue;
                 }
 
-                if(quantity == 0){
+                if(quantity == -1){
                     int removed = db.removeBom(lakesid, child_id);
                     if (removed > 0) {
                         logger.info("Success on bom removal - parent_id: {}, child_id: {}", lakesid, child_id);

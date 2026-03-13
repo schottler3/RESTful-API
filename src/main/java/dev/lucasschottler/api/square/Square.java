@@ -1,0 +1,145 @@
+package dev.lucasschottler.api.square;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import dev.lucasschottler.api.Actions;
+
+@Service
+public class Square {
+    
+    private final String personalAccessToken = System.getenv("SQUARE_PERSONAL_ACCESS_TOKEN");
+    private final HttpClient httpClient = HttpClient.newHttpClient();
+    private static final Logger logger = LoggerFactory.getLogger(Actions.class);
+    private ObjectMapper mapper = new ObjectMapper();
+
+    public String getInventoryCountBySKU(String sku) {
+
+        String variationId = null;
+
+        try {
+            variationId = getVariationID(sku);
+        } catch (Exception e){
+            logger.error("Square threw an error trying to get the variation ID! SKU: {}", sku);
+            return null;
+        }
+
+        if(variationId == null){
+            logger.info("Square was unable to return the variation ID! SKU: {}", sku);
+            return null;
+        }
+
+        JsonNode inventoryObject;
+
+        try{
+            inventoryObject = getInventoryObject(variationId);
+        } catch (Exception e){
+            logger.error("Square threw an exception getting the inventory object... {}", e);
+            return null;
+        }
+
+        if(inventoryObject == null){
+            logger.info("Square couldn't get the inventory object. It's null.");
+            return null;
+        }
+
+        String inventory_count = inventoryObject.path("counts").get(0).path("quantity").asText();
+        
+        logger.info("Square found quantity {} for sku {}", inventory_count, sku);
+       
+        return inventory_count;
+    }
+
+    public String getInventoryCountByVariationID(String variationId) {
+
+        JsonNode inventoryObject;
+
+        try{
+            inventoryObject = getInventoryObject(variationId);
+        } catch (Exception e){
+            logger.error("Square threw an exception getting the inventory object... {}", e);
+            return null;
+        }
+
+        if(inventoryObject == null){
+            logger.info("Square couldn't get the inventory object. It's null.");
+            return null;
+        }
+
+        String inventory_count = inventoryObject.path("counts").get(0).path("quantity").asText();
+        
+        logger.info("Square found quantity {} for variationID {}", inventory_count, variationId);
+       
+        return inventory_count;
+    }
+
+    private JsonNode getInventoryObject(String variationID) throws IOException, InterruptedException{
+        HttpRequest inventoryRequest = HttpRequest.newBuilder()
+            .uri(URI.create("https://connect.squareup.com/v2/inventory/" + variationID))
+            .header("Authorization", "Bearer " + personalAccessToken)
+            .header("Square-Version", "2026-01-22")
+            .header("Content-Type", "application/json")
+            .GET()
+            .build();
+
+        HttpResponse<String> inventoryResponse = httpClient.send(inventoryRequest, HttpResponse.BodyHandlers.ofString());
+
+        return mapper.readTree(inventoryResponse.body());
+    }
+
+    public String getVariationID(String sku) throws IOException, InterruptedException {
+        logger.info("Square received request for SKU: {}", sku);
+
+        String searchBody = """
+            {
+                "object_types": ["ITEM_VARIATION"],
+                "query": {
+                    "exact_query": {
+                        "attribute_name": "sku",
+                        "attribute_value": "%s"
+                    }
+                }
+            }
+            """.formatted(sku);
+
+        HttpRequest searchRequest = HttpRequest.newBuilder()
+            .uri(URI.create("https://connect.squareup.com/v2/catalog/search"))
+            .header("Authorization", "Bearer " + personalAccessToken)
+            .header("Square-Version", "2026-01-22")
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(searchBody))
+            .build();
+
+        logger.info("Square is sending request for inventory object: {}", searchBody);
+
+        HttpResponse<String> searchResponse = httpClient.send(searchRequest, HttpResponse.BodyHandlers.ofString());
+
+        if (searchResponse.statusCode() < 200 || searchResponse.statusCode() >= 300) {
+            logger.error("Square API error: {} - {}", searchResponse.statusCode(), searchResponse.body());
+            throw new IOException("Square API request failed with status " + searchResponse.statusCode());
+        }
+
+        JsonNode searchJson = mapper.readTree(searchResponse.body());
+        JsonNode objects = searchJson.path("objects");
+
+        if (objects.isEmpty()) {
+            logger.info("Square found no SKU... {}", sku);
+            return "No item found for SKU: " + sku;
+        }
+
+        logger.info("Square found sku with object: {}", objects.asText());
+
+        return objects.get(0).path("id").asText();
+    }
+
+}

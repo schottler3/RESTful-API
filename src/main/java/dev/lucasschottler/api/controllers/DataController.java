@@ -20,24 +20,27 @@ import org.springframework.web.bind.annotation.RestController;
 import dev.lucasschottler.api.Actions;
 import dev.lucasschottler.database.Databasing;
 import dev.lucasschottler.api.StateService;
+import dev.lucasschottler.api.square.Square;
 
 @RestController
-@RequestMapping("/superior")
+@RequestMapping("/superior/data")
 public class DataController {
 
     private final Databasing db;
     private final Actions actions;
     private final StateService stateService;
+    private final Square square;
     private static final Logger logger = LoggerFactory.getLogger(DataController.class);
     private static final String IS_UPDATING_KEY = "isUpdating";
 
-    public DataController(Databasing db, Actions actions, StateService stateService) {
+    public DataController(Databasing db, Actions actions, StateService stateService, Square square) {
         this.db = db;
         this.actions = actions;
         this.stateService = stateService;
+        this.square = square;
     }
 
-    @GetMapping({ "/data" })
+    @GetMapping({ "", "/" })
     public ResponseEntity<?> dataRoot(
         @RequestParam(required = false) String limit,
         @RequestParam(required = false) String keywords,
@@ -77,7 +80,7 @@ public class DataController {
         }
     }
 
-    @PatchMapping({"/data"})
+    @PatchMapping({"", "/"})
     public ResponseEntity<?> patchRoot(@RequestBody(required = true) List<Map<String, Object>> requestBody) {
 
         if (requestBody == null || requestBody.isEmpty()) {
@@ -126,7 +129,7 @@ public class DataController {
         }
     }
 
-    @GetMapping("/data/item/{lakesid}")
+    @GetMapping("/item/{lakesid}")
     public Map<String, Object> getItem(@PathVariable int lakesid) {
         return db.getData(lakesid, 1);
     }
@@ -218,5 +221,14 @@ public class DataController {
     public ResponseEntity<String> updateItem(@PathVariable int lakesid) {
         actions.updateItem(lakesid);
         return ResponseEntity.ok("Item updated successfully");
+    }
+
+    @GetMapping("/square/{sku}")
+    public ResponseEntity<String> getInventoryCountBySku(@PathVariable String sku){
+        try{        
+            return ResponseEntity.ok(square.getInventoryCountBySKU(sku));
+        } catch (Exception e){
+            return ResponseEntity.status(500).body("status: failed to get sku");
+        }
     }
 }

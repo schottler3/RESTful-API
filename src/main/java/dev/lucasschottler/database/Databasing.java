@@ -158,6 +158,22 @@ public class Databasing {
         }
     }
 
+    public boolean updateCustomQuantity(int lakesid, int quantity){
+
+        logger.info("Databasing: Updating Custom quantity on lakesid = {} with q = {}", lakesid, quantity);
+
+        String sql = "UPDATE superior SET custom_quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE lakesid = ?";
+
+        if(jdbcTemplate.update(sql, quantity, lakesid) > 0){
+            logger.info("Databasing: Custom quantity updated successfully for item: {} with quantity: {}", lakesid, quantity);
+            return true;
+        }
+        else {
+            logger.info("Databasing: Custom quantity update failure for item: {} with quantity: {}", lakesid, quantity);
+            return false;
+        }
+    }
+
     public boolean resetItem(LakesItem lakesItem) {
         HashMap<String, Double> amazonPrices = Amazon.getPrices(lakesItem.price);
         if (amazonPrices == null) {

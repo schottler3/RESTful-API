@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import dev.lucasschottler.api.controllers.BaseController;
+import dev.lucasschottler.api.square.Square;
 import dev.lucasschottler.lakes.LakesItem;
 import dev.lucasschottler.update.Amazon;
 
@@ -41,8 +42,10 @@ public class DatabaseItem {
     public Double lakes_price;
     public Double custom_price;
     public Integer fulfillment;
+    public String square_variation_id;
 
     private static final Logger logger = LoggerFactory.getLogger(BaseController.class);
+    private static final Square square = new Square();
 
     //Extraction of data from database Into an object
     public DatabaseItem(Map<String, Object> item){
@@ -73,6 +76,7 @@ public class DatabaseItem {
         this.lakes_price = (Double) item.get("lakes_price");
         this.custom_price = (Double) item.get("custom_price");
         this.fulfillment = (Integer) item.get("fulfillment");
+        this.square_variation_id = (String) item.get("square_variation_id");
     }
 
     public void updateItem(LakesItem lakesItem, Databasing db){
@@ -217,6 +221,16 @@ public class DatabaseItem {
                 logger.warn("Database Item UPDATE failure on attribute = fulfillment: lakesid = {}", this.lakesid);
             }
         }
+
+        if(this.square_variation_id == null){
+            logger.info("Database Item Updating square_variation_id");
+            try {
+                this.square_variation_id = square.getVariationID(sku);
+                logger.info("Database Item Updated square_variation_id to {}", this.square_variation_id);
+            } catch (Exception e){
+                logger.error("Database update was unable to get the variation ID! {}", sku);
+            }
+        }
     }
     
     @Override
@@ -248,6 +262,7 @@ public class DatabaseItem {
                 "    lakes_price=" + lakes_price + ",\n" +
                 "    custom_price=" + custom_price + ",\n" +
                 "    fulfillment=" + fulfillment + "\n" +
+                "    square_variation_id=" + square_variation_id + "\n" +
                 '}';
     }
 

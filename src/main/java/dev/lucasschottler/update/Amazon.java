@@ -222,7 +222,7 @@ public class Amazon {
         ArrayNode fulfillmentValue = mapper.createArrayNode();
         ObjectNode fulfillment = mapper.createObjectNode();
         fulfillment.put("fulfillment_channel_code", "DEFAULT");
-        fulfillment.put("quantity", dbItem.custom_quantity != null ? dbItem.custom_quantity : (int) (dbItem.quantity * .66));
+        fulfillment.put("quantity", dbItem.custom_quantity != null && dbItem.custom_quantity > 0 ? dbItem.custom_quantity : (int) (dbItem.quantity * .66));
         fulfillment.put("lead_time_to_ship_max_days", dbItem.fulfillment);
         fulfillmentValue.add(fulfillment);
 

@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import dev.lucasschottler.api.square.Square;
 import dev.lucasschottler.database.DatabaseItem;
 import dev.lucasschottler.database.Databasing;
 import dev.lucasschottler.lakes.Lakes;
@@ -24,11 +25,13 @@ public class Actions {
     private final Databasing db;
     private static final Logger logger = LoggerFactory.getLogger(Actions.class);
     private final StateService stateService;
+    private final Square square;
     Amazon amazon = new Amazon();
 
-    public Actions(Databasing db, Lakes lakes, StateService stateService){
+    public Actions(Databasing db, Lakes lakes, StateService stateService, Square square){
         this.db = db;
         this.stateService = stateService;
+        this.square = square;
     }
 
     public boolean resetItem(int lakesid){
@@ -86,6 +89,12 @@ public class Actions {
 
         dbItem.updateItem(lakesItem, db);
         logger.info("Actions reset resolved updateItem on database for sku: {}", dbItem.sku);
+
+        if(dbItem.square_variation_id != null){
+
+            int quantity = Integer.parseInt(square.getInventoryCountByVariationID(dbItem.square_variation_id));
+            db.updateCustomQuantity(dbItem.lakesid, quantity);
+        }
 
         logger.info("Actions update pushing to amazon, sku: ()", dbItem.sku);
         amazon.updateItem(dbItem);
