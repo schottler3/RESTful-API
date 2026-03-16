@@ -1,5 +1,6 @@
 package dev.lucasschottler.database;
 
+import java.io.Serial;
 import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Map;
@@ -43,6 +44,7 @@ public class DatabaseItem {
     public Double custom_price;
     public Integer fulfillment;
     public String square_variation_id;
+    public Integer id;
 
     private static final Logger logger = LoggerFactory.getLogger(BaseController.class);
     private static final Square square = new Square();
@@ -77,6 +79,7 @@ public class DatabaseItem {
         this.custom_price = (Double) item.get("custom_price");
         this.fulfillment = (Integer) item.get("fulfillment");
         this.square_variation_id = (String) item.get("square_variation_id");
+        this.id = (Integer) item.get("id");
     }
 
     public void updateItem(LakesItem lakesItem, Databasing db){
@@ -263,6 +266,7 @@ public class DatabaseItem {
                 "    custom_price=" + custom_price + ",\n" +
                 "    fulfillment=" + fulfillment + "\n" +
                 "    square_variation_id=" + square_variation_id + "\n" +
+                "    id=" + id + "\n" +
                 '}';
     }
 

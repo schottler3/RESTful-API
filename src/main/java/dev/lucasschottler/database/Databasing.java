@@ -10,6 +10,7 @@ import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import dev.lucasschottler.api.alternative.Alternative;
 import dev.lucasschottler.lakes.LakesItem;
 import dev.lucasschottler.update.Amazon;
 
@@ -158,6 +159,40 @@ public class Databasing {
         }
     }
 
+    public Integer createItem(DatabaseItem dbItem) {
+        logger.info("Databasing: Creating new item with lakesid: {}", dbItem.lakesid);
+
+        String sql = """
+            INSERT INTO superior (
+                lakesid, width, length, height, weight, type, mpn, title, description,
+                upc, quantity, custom_quantity, sku, milwaukee_images, package_width,
+                package_length, package_height, package_weight, lakes_images,
+                minimum_price, calculated_price, maximum_price, lakes_price,
+                custom_price, fulfillment, square_variation_id
+            ) VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ) RETURNING id
+        """;
+
+        try {
+            Integer id = jdbcTemplate.queryForObject(sql, Integer.class,
+                dbItem.lakesid, dbItem.width, dbItem.length, dbItem.height, dbItem.weight,
+                dbItem.type, dbItem.mpn, dbItem.title, dbItem.description, dbItem.upc,
+                dbItem.quantity, dbItem.custom_quantity, dbItem.sku, dbItem.milwaukee_images,
+                dbItem.package_width, dbItem.package_length, dbItem.package_height, dbItem.package_weight,
+                dbItem.lakes_images, dbItem.minimum_price, dbItem.calculated_price, dbItem.maximum_price,
+                dbItem.lakes_price, dbItem.custom_price, dbItem.fulfillment, dbItem.square_variation_id
+            );
+
+            logger.info("Databasing: createItem created with id: {}", id);
+            return id;
+
+        } catch (Exception e) {
+            logger.error("Databasing: createItem failed for lakesid {}: {}", dbItem.lakesid, e.getMessage());
+            return null;
+        }
+    }
+
     public boolean updateCustomQuantity(int lakesid, int quantity){
 
         logger.info("Databasing: Updating Custom quantity on lakesid = {} with q = {}", lakesid, quantity);
@@ -275,5 +310,20 @@ public class Databasing {
             logger.error("Error removing BOM item to parent {}: {} e: {}", parent_id, child_id, e);
             return -1;
         }
+    }
+
+    public boolean createAlt(Alternative altItem){
+
+        logger.info("Databasing: Adding a new alternative item listing... lakesid: {}, alt_sku: {}, is_ebay: {}, is_amazon: {}", altItem.dbItem.id, altItem.is_ebay, altItem.is_amazon);
+
+        Integer child_id = createItem(altItem.dbItem);
+
+        if(child_id == null){
+            return false;
+        }
+
+        String sql = "INSERT INTO alternative (parent_id, child_id, is_ebay, is_amazon) VALUES (?,?,?,?)";
+
+        return jdbcTemplate.update(sql, altItem.dbItem.id, child_id, altItem.is_ebay, altItem.is_amazon) > 0;
     }
 }
