@@ -121,9 +121,9 @@ public class Lakes {
         return longestTool;
     }
 
-    public static LakesItem getLakesItem(int id) {
+    public static LakesItem getLakesItem(int lakesid) {
         try {
-            String payload = "productids=%5B" + id + "%5D&regid=JXNnJGEEgrP63HI0SQEsMlT-lqGvpin-gs-TMt4v7KZNhXb8BXV3AGU9VvweaaoRkXWjtvc25shVAKa5Zb5MaI2GlIuSXzYIpfEQ-l87Y2qaaVGq2dRdEzHBjvkTweZeZjjfPDycP_6LDolPIapsKuHskOVMaGSnI_JsLF20Py8&sessionid=qtwf2nkbfh6bbs8f9c4u8ux434l4vhnlb34okc9a675gabmmigagcv6ojyu8ou04";
+            String payload = "productids=%5B" + lakesid + "%5D&regid=JXNnJGEEgrP63HI0SQEsMlT-lqGvpin-gs-TMt4v7KZNhXb8BXV3AGU9VvweaaoRkXWjtvc25shVAKa5Zb5MaI2GlIuSXzYIpfEQ-l87Y2qaaVGq2dRdEzHBjvkTweZeZjjfPDycP_6LDolPIapsKuHskOVMaGSnI_JsLF20Py8&sessionid=qtwf2nkbfh6bbs8f9c4u8ux434l4vhnlb34okc9a675gabmmigagcv6ojyu8ou04";
 
             HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                 .uri(URI.create(ITEMLINK))

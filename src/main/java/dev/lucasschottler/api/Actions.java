@@ -34,12 +34,12 @@ public class Actions {
         this.square = square;
     }
 
-    public boolean resetItem(int lakesid){
+    public boolean resetItem(String sku){
 
-        Map<String, Object> item = db.getData(lakesid, 1);
+        Map<String, Object> item = db.getData(sku);
 
         if(item == null){
-            logger.warn("Actions failed to reset lakesid: {} due to no results", lakesid);
+            logger.warn("Actions failed to reset sku: {} due to no results", sku);
             return false;
         }
 
@@ -71,12 +71,12 @@ public class Actions {
         return true;
     }
 
-    public boolean updateItem(int lakesid){
+    public boolean updateItem(String sku){
 
-        Map<String, Object> item = db.getData(lakesid, 1);
+        Map<String, Object> item = db.getData(sku);
 
         if(item == null){
-            logger.warn("Actions failed to update lakesid: {} due to no results", lakesid);
+            logger.warn("Actions failed to update sku: {} due to no results", sku);
             return false;
         }
 
@@ -92,8 +92,14 @@ public class Actions {
 
         if(dbItem.square_variation_id != null){
 
-            int quantity = Integer.parseInt(square.getInventoryCountByVariationID(dbItem.square_variation_id));
-            db.updateCustomQuantity(dbItem.lakesid, quantity);
+            String square_quantity = square.getInventoryCountByVariationID(dbItem.square_variation_id);
+
+            logger.info("Actions: Square quantity found: {}", square_quantity);
+
+            if(square_quantity != null){
+                int quantity = Integer.parseInt(square.getInventoryCountByVariationID(dbItem.square_variation_id));
+                db.updateCustomQuantity(dbItem.sku, quantity);
+            }
         }
 
         logger.info("Actions update pushing to amazon, sku: ()", dbItem.sku);

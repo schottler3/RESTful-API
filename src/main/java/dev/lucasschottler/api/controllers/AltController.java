@@ -1,6 +1,5 @@
 package dev.lucasschottler.api.controllers;
 
-import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
@@ -10,8 +9,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import dev.lucasschottler.database.DatabaseItem;
-
-import dev.lucasschottler.api.alternative.Alternative;
 import dev.lucasschottler.database.Databasing;
 
 @RestController
@@ -27,7 +24,7 @@ public class AltController {
     @PostMapping("/add")
     public ResponseEntity<String> addAlt(@RequestBody(required = true) Map<String, String> requestBody){
 
-        String lakesidStr = requestBody.get("lakesid");
+        String sku = requestBody.get("sku");
         String alt_sku = requestBody.get("alt_sku");
         String is_ebay_str = requestBody.get("is_ebay");
         String is_amazon_str = requestBody.get("is_amazon");
@@ -38,8 +35,8 @@ public class AltController {
             response = String.format("{\"message\": \"alt_sku invalid or missing\"}");
             return ResponseEntity.status(400).body(response);
         }
-        else if(lakesidStr == null){
-            response = String.format("{\"message\": \"lakesid invalid or missing\"}");
+        else if(sku == null){
+            response = String.format("{\"message\": \"sku invalid or missing\"}");
             return ResponseEntity.status(400).body(response);
         }
         else if(is_ebay_str == null){
@@ -51,14 +48,12 @@ public class AltController {
             return ResponseEntity.status(400).body(response);
         }
 
-        Integer lakesid = Integer.parseInt(lakesidStr);
         Boolean is_ebay = Boolean.parseBoolean(is_ebay_str);
         Boolean is_amazon = Boolean.parseBoolean(is_amazon_str);
 
-        DatabaseItem dbItem = new DatabaseItem(db.getData(lakesid, 1));
-        Alternative altItem = new Alternative(dbItem, alt_sku, is_ebay, is_amazon);
+        DatabaseItem dbItem = new DatabaseItem(db.getData(sku));
 
-        db.createAlt(altItem);
+        db.createAlt(dbItem,is_ebay,is_amazon,sku);
 
         response = String.format("{\"message\": \"%s created\"}", alt_sku);
 

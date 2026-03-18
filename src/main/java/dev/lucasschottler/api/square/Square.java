@@ -13,79 +13,79 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import dev.lucasschottler.api.Actions;
-
 @Service
 public class Square {
-    
+
     private final String personalAccessToken = System.getenv("SQUARE_PERSONAL_ACCESS_TOKEN");
     private final HttpClient httpClient = HttpClient.newHttpClient();
-    private static final Logger logger = LoggerFactory.getLogger(Actions.class);
-    private ObjectMapper mapper = new ObjectMapper();
+    private static final Logger logger = LoggerFactory.getLogger(Square.class);
+    private final ObjectMapper mapper = new ObjectMapper();
 
     public String getInventoryCountBySKU(String sku) {
 
-        String variationId = null;
+        String variationId;
 
         try {
             variationId = getVariationID(sku);
-        } catch (Exception e){
-            logger.error("Square threw an error trying to get the variation ID! SKU: {}", sku);
+        } catch (Exception e) {
+            logger.error("Square threw an error trying to get the variation ID! SKU: {}", sku, e);
             return null;
         }
 
-        if(variationId == null){
+        if (variationId == null) {
             logger.info("Square was unable to return the variation ID! SKU: {}", sku);
             return null;
         }
 
         JsonNode inventoryObject;
 
-        try{
+        try {
             inventoryObject = getInventoryObject(variationId);
-        } catch (Exception e){
-            logger.error("Square threw an exception getting the inventory object... {}", e);
+        } catch (Exception e) {
+            logger.error("Square threw an exception getting the inventory object for SKU: {}", sku, e);
             return null;
         }
 
-        if(inventoryObject == null){
-            logger.info("Square couldn't get the inventory object. It's null.");
-            return null;
-        }
-
-        String inventory_count = inventoryObject.path("counts").get(0).path("quantity").asText();
-        
-        logger.info("Square found quantity {} for sku {}", inventory_count, sku);
-       
-        return inventory_count;
+        return extractQuantityFromInventoryObject(inventoryObject, sku);
     }
 
     public String getInventoryCountByVariationID(String variationId) {
 
         JsonNode inventoryObject;
 
-        try{
+        try {
             inventoryObject = getInventoryObject(variationId);
-        } catch (Exception e){
-            logger.error("Square threw an exception getting the inventory object... {}", e);
+        } catch (Exception e) {
+            logger.error("Square threw an exception getting the inventory object for variationId: {}", variationId, e);
             return null;
         }
 
-        if(inventoryObject == null){
-            logger.info("Square couldn't get the inventory object. It's null.");
-            return null;
-        }
-
-        String inventory_count = inventoryObject.path("counts").get(0).path("quantity").asText();
-        
-        logger.info("Square found quantity {} for variationID {}", inventory_count, variationId);
-       
-        return inventory_count;
+        return extractQuantityFromInventoryObject(inventoryObject, variationId);
     }
 
-    private JsonNode getInventoryObject(String variationID) throws IOException, InterruptedException{
+    private String extractQuantityFromInventoryObject(JsonNode inventoryObject, String identifier) {
+        if (inventoryObject == null) {
+            logger.info("Square couldn't get the inventory object for: {}", identifier);
+            return null;
+        }
+
+        JsonNode counts = inventoryObject.path("counts");
+
+        if (counts.isEmpty()) {
+            logger.info("Square returned no counts for: {}", identifier);
+            return null;
+        }
+
+        String inventoryCount = counts.get(0).path("quantity").asText();
+
+        logger.info("Square found quantity {} for {}", inventoryCount, identifier);
+
+        return inventoryCount;
+    }
+
+    private JsonNode getInventoryObject(String variationId) throws IOException, InterruptedException {
         HttpRequest inventoryRequest = HttpRequest.newBuilder()
-            .uri(URI.create("https://connect.squareup.com/v2/inventory/" + variationID))
+            .uri(URI.create("https://connect.squareup.com/v2/inventory/" + variationId))
             .header("Authorization", "Bearer " + personalAccessToken)
             .header("Square-Version", "2026-01-22")
             .header("Content-Type", "application/json")
@@ -133,13 +133,12 @@ public class Square {
         JsonNode objects = searchJson.path("objects");
 
         if (objects.isEmpty()) {
-            logger.info("Square found no SKU... {}", sku);
-            return "No item found for SKU: " + sku;
+            logger.info("Square found no SKU: {}", sku);
+            return null;
         }
 
         logger.info("Square found sku with object: {}", objects.asText());
 
         return objects.get(0).path("id").asText();
     }
-
 }

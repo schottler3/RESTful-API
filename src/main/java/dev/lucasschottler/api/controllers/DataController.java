@@ -95,23 +95,23 @@ public class DataController {
             // Process each change
             for (int i = 0; i < requestBody.size(); i++) {
                 Map<String, Object> change = requestBody.get(i);
-                Integer lakesid = (Integer) change.get("lakesid");
+                String sku = (String) change.get("sku");
                 String attribute = (String) change.get("attribute");
                 String newValue = (String) change.get("new");
 
-                if (lakesid == null || attribute == null || newValue == null) {
+                if (sku == null || attribute == null || newValue == null) {
                     logger.warn("Missing required fields in patch: " + i);
                     failures.add(change);
                     continue;
                 }
                 
-                logger.info("Attempt on Change - lakesid: {}, attribute: {}, new: {}", lakesid, attribute, newValue);
-                if(db.patchItem(lakesid, attribute, newValue)){
-                    logger.info("Success on Change: lakesid: {}, attribute: {}, new: {}", lakesid, attribute, newValue);
-                    actions.updateItem(lakesid);
+                logger.info("Attempt on Change - sku: {}, attribute: {}, new: {}", sku, attribute, newValue);
+                if(db.patchItem(sku, attribute, newValue)){
+                    logger.info("Success on Change: sku: {}, attribute: {}, new: {}", sku, attribute, newValue);
+                    actions.updateItem(sku);
                 }
                 else{
-                    logger.error("Failure on Change: lakesid: {}, attribute: {}, new: {}", lakesid, attribute, newValue);
+                    logger.error("Failure on Change: sku: {}, attribute: {}, new: {}", sku, attribute, newValue);
                     failures.add(change);
                 }
             }
@@ -129,22 +129,22 @@ public class DataController {
         }
     }
 
-    @GetMapping("/item/{lakesid}")
-    public Map<String, Object> getItem(@PathVariable int lakesid) {
-        return db.getData(lakesid, 1);
+    @GetMapping("/item/{sku}")
+    public Map<String, Object> getItem(@PathVariable String sku) {
+        return db.getData(sku);
     }
 
-    @PutMapping("/reset/{lakesid}")
-    public ResponseEntity<?> resetItem(@PathVariable int lakesid) {
+    @PutMapping("/reset/{sku}")
+    public ResponseEntity<?> resetItem(@PathVariable String sku) {
         try {
-            boolean success = actions.resetItem(lakesid);
+            boolean success = actions.resetItem(sku);
             
             if (!success) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("error", "Failed to reset item - item not found or reset failed"));
             }
             
-            Map<String, Object> updatedItem = db.getData(lakesid, 1);
+            Map<String, Object> updatedItem = db.getData(sku);
             
             if (updatedItem == null) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -154,7 +154,7 @@ public class DataController {
             return ResponseEntity.ok(updatedItem);
             
         } catch (Exception e) {
-            logger.error("Error resetting item {}: {}", lakesid, e.getMessage(), e);
+            logger.error("Error resetting item {}: {}", sku, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "Internal server error", "details", e.getMessage()));
         }
@@ -217,9 +217,9 @@ public class DataController {
         }
     }
 
-    @PostMapping("/update/{lakesid}")
-    public ResponseEntity<String> updateItem(@PathVariable int lakesid) {
-        actions.updateItem(lakesid);
+    @PostMapping("/update/{sku}")
+    public ResponseEntity<String> updateItem(@PathVariable String sku) {
+        actions.updateItem(sku);
         return ResponseEntity.ok("Item updated successfully");
     }
 

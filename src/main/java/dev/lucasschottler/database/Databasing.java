@@ -10,7 +10,6 @@ import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
-import dev.lucasschottler.api.alternative.Alternative;
 import dev.lucasschottler.lakes.LakesItem;
 import dev.lucasschottler.update.Amazon;
 
@@ -51,24 +50,18 @@ public class Databasing {
         this.jdbcTemplate = jdbcTemplate;
     }
     
-    public List<java.util.Map<String, Object>> getData(String SKU, int limit) {
-        if (SKU == null || SKU.trim().isEmpty()) {
-            String sql = "SELECT * FROM superior ORDER BY lakesid ASC LIMIT ?";
-            return jdbcTemplate.queryForList(sql, limit);
+    public java.util.Map<String, Object> getData(String sku) {
+        if (sku == null || sku.trim().isEmpty()) {
+            String sql = "SELECT * FROM superior ORDER BY sku ASC";
+            return jdbcTemplate.queryForMap(sql);
         }
-        String sql = "SELECT * FROM superior WHERE sku LIKE ? ORDER BY lakesid ASC LIMIT ?";
-        String pattern = "%" + SKU + "%";
-        return jdbcTemplate.queryForList(sql, pattern, limit);
-    }
-
-    public java.util.Map<String, Object> getData(int lakesid, int limit) {
-        String sql = "SELECT * FROM superior WHERE lakesid = ?";
-        return jdbcTemplate.queryForMap(sql, lakesid);
+        String sql = "SELECT * FROM superior WHERE sku LIKE ? ORDER BY sku ASC";
+        return jdbcTemplate.queryForMap(sql, sku);
     }
 
     public List<Map<String, Object>> queryDatabase(String query, int limit, String time) {
 
-        String order = "lakesid ASC";
+        String order = "sku ASC";
 
         if(time != null){
             if(time.equals("newest")){
@@ -119,14 +112,14 @@ public class Databasing {
         return results.isEmpty() ? new ArrayList<>() : results;
     }
 
-    public boolean patchItem(Integer lakesid, String attribute, String data) {
+    public boolean patchItem(String sku, String attribute, String data) {
     
         if (!allowedColumns.contains(attribute)) {
             logger.warn("Invalid attribute: {}", attribute);
             return false;
         }
         
-        String sql = "UPDATE superior SET " + attribute + " = ?, updated_at = CURRENT_TIMESTAMP WHERE lakesid = ?";
+        String sql = "UPDATE superior SET " + attribute + " = ?, updated_at = CURRENT_TIMESTAMP WHERE sku = ?";
         logger.info("DEBUG - SQL: {}", sql);
         
         try {
@@ -137,13 +130,13 @@ public class Databasing {
                 if (integerColumns.contains(attribute)) sqlType = Types.INTEGER;
                 else if (doubleColumns.contains(attribute)) sqlType = Types.DOUBLE;
 
-                rowsAffected = jdbcTemplate.update(sql, new Object[]{null, lakesid}, new int[]{sqlType, Types.INTEGER});
+                rowsAffected = jdbcTemplate.update(sql, new Object[]{null, sku}, new int[]{sqlType, Types.INTEGER});
             } else if (integerColumns.contains(attribute)) {
-                rowsAffected = jdbcTemplate.update(sql, Integer.parseInt(data), lakesid);
+                rowsAffected = jdbcTemplate.update(sql, Integer.parseInt(data), sku);
             } else if (doubleColumns.contains(attribute)) {
-                rowsAffected = jdbcTemplate.update(sql, Double.parseDouble(data), lakesid);
+                rowsAffected = jdbcTemplate.update(sql, Double.parseDouble(data), sku);
             } else {
-                rowsAffected = jdbcTemplate.update(sql, data, lakesid);
+                rowsAffected = jdbcTemplate.update(sql, data, sku);
             }
 
             logger.info("Databasing patchItem rowsAffected: {}", rowsAffected);
@@ -160,7 +153,7 @@ public class Databasing {
     }
 
     public Integer createItem(DatabaseItem dbItem) {
-        logger.info("Databasing: Creating new item with lakesid: {}", dbItem.lakesid);
+        logger.info("Databasing: Creating new item with sku: {}", dbItem.sku);
 
         String sql = """
             INSERT INTO superior (
@@ -188,23 +181,23 @@ public class Databasing {
             return id;
 
         } catch (Exception e) {
-            logger.error("Databasing: createItem failed for lakesid {}: {}", dbItem.lakesid, e.getMessage());
+            logger.error("Databasing: createItem failed for sku {}: {}", dbItem.sku, e.getMessage());
             return null;
         }
     }
 
-    public boolean updateCustomQuantity(int lakesid, int quantity){
+    public boolean updateCustomQuantity(String sku, int quantity){
 
-        logger.info("Databasing: Updating Custom quantity on lakesid = {} with q = {}", lakesid, quantity);
+        logger.info("Databasing: Updating Custom quantity on sku = {} with q = {}", sku, quantity);
 
-        String sql = "UPDATE superior SET custom_quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE lakesid = ?";
+        String sql = "UPDATE superior SET custom_quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE sku = ?";
 
-        if(jdbcTemplate.update(sql, quantity, lakesid) > 0){
-            logger.info("Databasing: Custom quantity updated successfully for item: {} with quantity: {}", lakesid, quantity);
+        if(jdbcTemplate.update(sql, quantity, sku) > 0){
+            logger.info("Databasing: Custom quantity updated successfully for item: {} with quantity: {}", sku, quantity);
             return true;
         }
         else {
-            logger.info("Databasing: Custom quantity update failure for item: {} with quantity: {}", lakesid, quantity);
+            logger.info("Databasing: Custom quantity update failure for item: {} with quantity: {}", sku, quantity);
             return false;
         }
     }
@@ -278,52 +271,74 @@ public class Databasing {
         return jdbcTemplate.queryForList(sql, String.class, pattern);
     }
 
-    public List<java.util.Map<String, Object>> getBom(int lakesid){
-        String sql = "SELECT * FROM bom WHERE parent_id = ?";
+    public List<java.util.Map<String, Object>> getBom(String parent_sku){
+        String sql = "SELECT * FROM bom WHERE parent_sku = ?";
 
-        return jdbcTemplate.queryForList(sql, lakesid);
+        return jdbcTemplate.queryForList(sql, parent_sku);
     }
 
-    public boolean addBom(Integer parent_id, Integer child_id, Double quantity){
+    public boolean addBom(String parent_sku, String child_sku, Double quantity){
 
-        logger.info("Adding BOM item to parent {}: {} q: {}", parent_id, child_id, quantity);
+        logger.info("Adding BOM item to parent {}: {} q: {}", parent_sku, child_sku, quantity);
 
         try{
-            String sql = "INSERT INTO bom (parent_id, child_id, quantity) VALUES (?, ?, ?) " +
-                        "ON CONFLICT (parent_id, child_id) " +
+            String sql = "INSERT INTO bom (parent_sku, child_sku, quantity) VALUES (?, ?, ?) " +
+                        "ON CONFLICT (parent_sku, child_sku) " +
                         "DO UPDATE SET quantity = EXCLUDED.quantity";
 
-            return jdbcTemplate.update(sql, parent_id, child_id, quantity) > 0;
+            return jdbcTemplate.update(sql, parent_sku, child_sku, quantity) > 0;
         } catch (Exception e) {
-            logger.error("Error adding BOM item to parent {}: {} q: {} e: {}", parent_id, child_id, quantity, e);
+            logger.error("Error adding BOM item to parent {}: {} q: {} e: {}", parent_sku, child_sku, quantity, e);
             return false;
         }
     }
 
-    public int removeBom(Integer parent_id, Integer child_id){
-        logger.info("Removing BOM item to parent {}: {}", parent_id, child_id);
+    public int removeBom(String parent_sku, String child_sku){
+        logger.info("Removing BOM item to parent {}: {}", parent_sku, child_sku);
 
         try{
-            String sql = "DELETE FROM bom WHERE parent_id = ? AND child_id = ?";
-            return jdbcTemplate.update(sql, parent_id, child_id);
+            String sql = "DELETE FROM bom WHERE parent_sku = ? AND child_sku = ?";
+            return jdbcTemplate.update(sql, parent_sku, child_sku);
         } catch (Exception e) {
-            logger.error("Error removing BOM item to parent {}: {} e: {}", parent_id, child_id, e);
+            logger.error("Error removing BOM item to parent {}: {} e: {}", parent_sku, child_sku, e);
             return -1;
         }
     }
 
-    public boolean createAlt(Alternative altItem){
+    public Boolean createAlt(DatabaseItem dbItem, Boolean is_ebay, Boolean is_amazon, String parent_sku){
 
-        logger.info("Databasing: Adding a new alternative item listing... lakesid: {}, alt_sku: {}, is_ebay: {}, is_amazon: {}", altItem.dbItem.id, altItem.is_ebay, altItem.is_amazon);
+        logger.info("Databasing: Creating new item with sku: {}", dbItem.sku);
 
-        Integer child_id = createItem(altItem.dbItem);
+        String sql = """
+            INSERT INTO superior (
+                lakesid, width, length, height, weight, type, mpn, title, description,
+                upc, quantity, custom_quantity, sku, milwaukee_images, package_width,
+                package_length, package_height, package_weight, lakes_images,
+                minimum_price, calculated_price, maximum_price, lakes_price,
+                custom_price, fulfillment, square_variation_id, is_amazon, is_ebay, parent_sku
+            ) VALUES (
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ) RETURNING id
+        """;
 
-        if(child_id == null){
+        try {
+            Integer id = jdbcTemplate.queryForObject(sql, Integer.class,
+                dbItem.lakesid, dbItem.width, dbItem.length, dbItem.height, dbItem.weight,
+                dbItem.type, dbItem.mpn, dbItem.title, dbItem.description, dbItem.upc,
+                dbItem.quantity, dbItem.custom_quantity, dbItem.sku, dbItem.milwaukee_images,
+                dbItem.package_width, dbItem.package_length, dbItem.package_height, dbItem.package_weight,
+                dbItem.lakes_images, dbItem.minimum_price, dbItem.calculated_price, dbItem.maximum_price,
+                dbItem.lakes_price, dbItem.custom_price, dbItem.fulfillment, dbItem.square_variation_id, 
+                is_amazon, is_ebay, parent_sku
+            );
+
+            logger.info("Databasing: altItem created with id: {}", id);
+            return true;
+
+        } catch (Exception e) {
+            logger.error("Databasing: altItem failed for sku {}: {}", dbItem.sku, e.getMessage());
             return false;
         }
-
-        String sql = "INSERT INTO alternative (parent_id, child_id, is_ebay, is_amazon) VALUES (?,?,?,?)";
-
-        return jdbcTemplate.update(sql, altItem.dbItem.id, child_id, altItem.is_ebay, altItem.is_amazon) > 0;
+        
     }
 }
