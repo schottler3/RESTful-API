@@ -116,7 +116,7 @@ public class Ebay {
         double package_weight = dbItem.package_weight != null ? dbItem.package_weight : dbItem.weight + 1;
 
         String description = dbItem.description;
-        int quantity = dbItem.custom_quantity != null ? dbItem.custom_quantity : (int) (dbItem.quantity * .66);
+        int quantity = dbItem.custom_quantity != null && dbItem.custom_quantity != 0 ? dbItem.custom_quantity : (int) (dbItem.quantity * .66);
 
         // #region JSON_BUILD
 
@@ -276,7 +276,7 @@ public class Ebay {
         fulfillmentTime.put("unit", "BUSINESS_DAY");
         fulfillmentTime.put("value", dbItem.fulfillment);
 
-        shipToLocationAvailability.put("quantity", dbItem.custom_quantity != null ? dbItem.custom_quantity : (int) (dbItem.quantity * .66));
+        shipToLocationAvailability.put("quantity", dbItem.custom_quantity != null && dbItem.custom_quantity > 0 ? dbItem.custom_quantity : (int) (dbItem.quantity * .66));
         shipToLocationAvailability.put("merchantLocationKey", "Default-EBAY_US");
 
         // #endregion 
@@ -323,7 +323,7 @@ public class Ebay {
         ObjectNode pricingSummary = offerUpdateNode.putObject("pricingSummary");
         ObjectNode price = pricingSummary.putObject("price");
 
-        offerUpdateNode.put("availableQuantity", dbItem.custom_quantity != null ? dbItem.custom_quantity : (int) (dbItem.quantity * .66));
+        offerUpdateNode.put("availableQuantity", dbItem.custom_quantity != null && dbItem.custom_quantity > 0 ? dbItem.custom_quantity : (int) (dbItem.quantity * .66));
 
         price.put("currency", "USD");
         price.put("value", dbItem.custom_price != null ? dbItem.custom_price : dbItem.calculated_price);
