@@ -186,6 +186,21 @@ public class Databasing {
         }
     }
 
+    public boolean deleteItem(String sku) {
+        
+        String sql = "DELETE FROM superior WHERE sku=?;";
+
+        int rows = jdbcTemplate.update(sql, sku);
+
+        if(rows > 0){
+            return true;
+        }
+        else {
+            return false;
+        }
+
+    }
+
     public boolean updateCustomQuantity(String sku, int quantity){
 
         logger.info("Databasing: Updating Custom quantity on sku = {} with q = {}", sku, quantity);
@@ -305,9 +320,9 @@ public class Databasing {
         }
     }
 
-    public Boolean createAlt(DatabaseItem dbItem, Boolean is_ebay, Boolean is_amazon, String parent_sku){
+    public boolean createAlt(DatabaseItem dbItem, String parentSku) {
 
-        logger.info("Databasing: Creating new item with sku: {}", dbItem.sku);
+        logger.info("Databasing: Creating new alt item with sku: {}", dbItem.sku);
 
         String sql = """
             INSERT INTO superior (
@@ -315,30 +330,40 @@ public class Databasing {
                 upc, quantity, custom_quantity, sku, milwaukee_images, package_width,
                 package_length, package_height, package_weight, lakes_images,
                 minimum_price, calculated_price, maximum_price, lakes_price,
-                custom_price, fulfillment, square_variation_id, is_amazon, is_ebay, parent_sku
+                custom_price, fulfillment, square_variation_id, parent_sku
             ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-            ) RETURNING id
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            )
         """;
 
         try {
-            Integer id = jdbcTemplate.queryForObject(sql, Integer.class,
+            int rows = jdbcTemplate.update(sql,
                 dbItem.lakesid, dbItem.width, dbItem.length, dbItem.height, dbItem.weight,
                 dbItem.type, dbItem.mpn, dbItem.title, dbItem.description, dbItem.upc,
                 dbItem.quantity, dbItem.custom_quantity, dbItem.sku, dbItem.milwaukee_images,
                 dbItem.package_width, dbItem.package_length, dbItem.package_height, dbItem.package_weight,
                 dbItem.lakes_images, dbItem.minimum_price, dbItem.calculated_price, dbItem.maximum_price,
-                dbItem.lakes_price, dbItem.custom_price, dbItem.fulfillment, dbItem.square_variation_id, 
-                is_amazon, is_ebay, parent_sku
+                dbItem.lakes_price, dbItem.custom_price, dbItem.fulfillment, dbItem.square_variation_id, parentSku
             );
 
-            logger.info("Databasing: altItem created with id: {}", id);
-            return true;
+            logger.info("Databasing: Alt item created with rows: {}", rows);
+            return rows > 0;
 
         } catch (Exception e) {
-            logger.error("Databasing: altItem failed for sku {}: {}", dbItem.sku, e.getMessage());
+            logger.error("Databasing: Alt item creation failed for sku {}: {}", dbItem.sku, e.getMessage());
             return false;
         }
+    }
+
+    public List<java.util.Map<String,Object>> getAlts(String parentSku){
+        logger.info("Databasing received request for all alternatives for parentSku: {}", parentSku);
         
+        String sql = "SELECT * FROM superior WHERE parent_sku = ?;";
+
+        List<java.util.Map<String,Object>> alternatives = jdbcTemplate.queryForList(sql,parentSku);
+
+        logger.info("Databasing retrieved all alternatives for parentSku: {} - {} ", parentSku, alternatives.toString());
+
+        return alternatives;
     }
 }
