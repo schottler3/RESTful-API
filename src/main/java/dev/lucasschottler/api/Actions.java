@@ -26,12 +26,14 @@ public class Actions {
     private static final Logger logger = LoggerFactory.getLogger(Actions.class);
     private final StateService stateService;
     private final Square square;
+    private Lakes lakes;
     Amazon amazon = new Amazon();
 
     public Actions(Databasing db, Lakes lakes, StateService stateService, Square square){
         this.db = db;
         this.stateService = stateService;
         this.square = square;
+        this.lakes = lakes;
     }
 
     public boolean resetItem(String sku){
@@ -48,7 +50,7 @@ public class Actions {
 
         logger.info("Actions update resolved dbItem for sku: {}", dbItem.sku);
 
-        LakesItem lakesItem = Lakes.getLakesItem(dbItem.lakesid);
+        LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
 
         logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
         
@@ -84,7 +86,7 @@ public class Actions {
         DatabaseItem dbItem = new DatabaseItem(item);
         logger.info("Actions update resolved dbItem for sku: {}", dbItem.sku);
 
-        LakesItem lakesItem = Lakes.getLakesItem(dbItem.lakesid);
+        LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
         logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
 
         dbItem.updateItem(lakesItem, db);
@@ -158,7 +160,7 @@ public class Actions {
             logger.info("Actions starting on item: {}", item);
             DatabaseItem dbItem = new DatabaseItem(item);
 
-            LakesItem lakesItem = Lakes.getLakesItem(dbItem.lakesid);
+            LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
 
             dbItem.updateItem(lakesItem, db);
 

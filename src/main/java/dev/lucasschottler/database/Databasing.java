@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -57,6 +58,41 @@ public class Databasing {
         }
         String sql = "SELECT * FROM superior WHERE sku LIKE ? ORDER BY sku ASC";
         return jdbcTemplate.queryForMap(sql, sku);
+    }
+
+    public java.util.Map<String, Object> getData(int lakesid) {
+        String sql = "SELECT * FROM superior WHERE lakesid LIKE ?";
+        return jdbcTemplate.queryForMap(sql, lakesid);
+    }
+
+    public int getLastLakesId() {
+        String superiorSQL = "SELECT lakesid FROM superior ORDER BY lakesid DESC LIMIT 1";
+        String reportSQL = "SELECT lakesid FROM report ORDER BY lakesid ASC LIMIT 1";
+
+        Integer lakesid = null;
+        Integer reportLakesId = null;
+
+        try {
+            lakesid = jdbcTemplate.queryForObject(superiorSQL, Integer.class);
+        } catch (EmptyResultDataAccessException e) {
+            logger.info("No rows in superior table");
+        }
+
+        try {
+            reportLakesId = jdbcTemplate.queryForObject(reportSQL, Integer.class);
+        } catch (EmptyResultDataAccessException e) {
+            logger.info("No rows in report table");
+        }
+
+        if (lakesid != null && reportLakesId != null) {
+            return Math.min(lakesid, reportLakesId);
+        } else if (lakesid != null) {
+            return lakesid;
+        } else if (reportLakesId != null) {
+            return reportLakesId;
+        } else {
+            return -1;
+        }
     }
 
     public List<Map<String, Object>> queryDatabase(String query, int limit, String time) {
@@ -365,5 +401,17 @@ public class Databasing {
         logger.info("Databasing retrieved all alternatives for parentSku: {} - {} ", parentSku, alternatives.toString());
 
         return alternatives;
+    }
+
+    public boolean addReportItem(LakesItem item) {
+        String sql = "INSERT INTO report (lakesid, title, description, sku, lakes_price, lakes_images, quantity) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        return jdbcTemplate.update(sql, item.lakesid, item.title, item.description, item.sku, item.price, item.imageLink, item.quantity) > 0;
+    }
+
+    public List<Map<String,Object>> getReport(){
+
+        String sql = "SELECT * FROM report ORDER BY sku ASC";
+
+        return jdbcTemplate.queryForList(sql);
     }
 }
