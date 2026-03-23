@@ -81,9 +81,9 @@ public class DatabaseItem {
         this.fulfillment = (Integer) item.get("fulfillment");
         this.square_variation_id = (String) item.get("square_variation_id");
         this.parent_sku = (String) item.get("parent_sku");
-        this.is_ebay = (Boolean) item.get("is_ebay");
-        this.is_amazon = (Boolean) item.get("is_amazon");
     }
+
+    public DatabaseItem(){}
 
     public void updateItem(LakesItem lakesItem, Databasing db){
        

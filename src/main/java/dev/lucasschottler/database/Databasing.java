@@ -17,7 +17,9 @@ import dev.lucasschottler.update.Amazon;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.LocalDateTime;
 
 
 @Service
@@ -188,7 +190,7 @@ public class Databasing {
         }
     }
 
-    public Integer createItem(DatabaseItem dbItem) {
+    public boolean createItem(DatabaseItem dbItem) {
         logger.info("Databasing: Creating new item with sku: {}", dbItem.sku);
 
         String sql = """
@@ -200,11 +202,11 @@ public class Databasing {
                 custom_price, fulfillment, square_variation_id
             ) VALUES (
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-            ) RETURNING id
+            )
         """;
 
         try {
-            Integer id = jdbcTemplate.queryForObject(sql, Integer.class,
+            int updated = jdbcTemplate.update(sql,
                 dbItem.lakesid, dbItem.width, dbItem.length, dbItem.height, dbItem.weight,
                 dbItem.type, dbItem.mpn, dbItem.title, dbItem.description, dbItem.upc,
                 dbItem.quantity, dbItem.custom_quantity, dbItem.sku, dbItem.milwaukee_images,
@@ -213,12 +215,13 @@ public class Databasing {
                 dbItem.lakes_price, dbItem.custom_price, dbItem.fulfillment, dbItem.square_variation_id
             );
 
-            logger.info("Databasing: createItem created with id: {}", id);
-            return id;
+            logger.info("Databasing: createItem created with sku: {}", dbItem.sku);
+
+            return updated > 0;
 
         } catch (Exception e) {
             logger.error("Databasing: createItem failed for sku {}: {}", dbItem.sku, e.getMessage());
-            return null;
+            return false;
         }
     }
 
@@ -404,8 +407,18 @@ public class Databasing {
     }
 
     public boolean addReportItem(LakesItem item) {
-        String sql = "INSERT INTO report (lakesid, title, description, sku, lakes_price, lakes_images, quantity) VALUES (?, ?, ?, ?, ?, ?, ?)";
-        return jdbcTemplate.update(sql, item.lakesid, item.title, item.description, item.sku, item.price, item.imageLink, item.quantity) > 0;
+        String sql = "INSERT INTO report (lakesid, title, description, sku, lakes_price, lakes_images, quantity, date_added) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        if(jdbcTemplate.update(sql, item.lakesid, item.title, item.description, item.sku, item.price, item.imageLink, item.quantity, Timestamp.valueOf(LocalDateTime.now())) > 0){
+            deleteReportItem(item.lakesid);
+            return true;
+        }
+        return false;
+    }
+
+    public boolean deleteReportItem(int lakesid){
+        String sql = "DELETE FROM report WHERE lakesid='?'";
+
+        return jdbcTemplate.update(sql,lakesid) > 0;
     }
 
     public List<Map<String,Object>> getReport(){
@@ -413,5 +426,20 @@ public class Databasing {
         String sql = "SELECT * FROM report ORDER BY sku ASC";
 
         return jdbcTemplate.queryForList(sql);
+    }
+
+    public Map<String,Object> getReport(int lakesid){
+
+        String sql = "SELECT * FROM report WHERE lakesid =" + lakesid + "ORDER BY sku ASC";
+
+        return jdbcTemplate.queryForMap(sql);
+    }
+
+    public List<Integer> getAllNewReportIds(){
+
+        String sql = "SELECT lakesid FROM report WHERE type='new'";
+
+        return jdbcTemplate.queryForList(sql, Integer.class);
+
     }
 }

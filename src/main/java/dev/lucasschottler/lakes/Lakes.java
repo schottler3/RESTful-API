@@ -174,40 +174,4 @@ public class Lakes {
         return null;
     }
 
-    public List<LakesItem> getNewItems() {
-        int lastId = db.getLastLakesId();
-
-        if(lastId <= 0){
-            logger.info("Lakes: the smallest new index was not found...");
-            return null;
-        }
-
-        logger.info("Last lakesid from DB: {}", lastId);
-
-        List<LakesItem> newItems = new ArrayList<>();
-        int delta = 1;
-        int concurrentFails = 0;
-
-        while (concurrentFails < 10) {
-            int queryId = lastId + delta;
-            logger.info("Querying lakesid: {}", queryId);
-            
-            LakesItem newItem = getLakesItem(queryId);
-
-            if (newItem != null) {
-                logger.info("Found item with lakesid: {}", newItem.lakesid);
-                newItems.add(newItem);
-                db.addReportItem(newItem);
-                concurrentFails = 0;
-            } else {
-                logger.info("No item found for lakesid: {}, stopping loop", queryId);
-                concurrentFails++;
-            }
-            delta++;
-        }
-
-        logger.info("Total new items found: {}", newItems.size());
-        return newItems;
-    }
-
 }
