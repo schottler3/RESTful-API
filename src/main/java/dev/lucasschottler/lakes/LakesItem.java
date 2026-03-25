@@ -31,7 +31,7 @@ public class LakesItem {
             JsonNode productData = firstElement.get("productdata");
 
             // Map top-level fields
-            this.lakesid = productData.has("id") ? productData.get("id").asInt() : 0;
+            this.lakesid = productData.has("id") ? productData.get("id").asInt() : -1;
             this.productCode = productData.has("product_code") ? productData.get("product_code").asText() : "";
             this.quantity = productData.has("inventory_level") ? productData.get("inventory_level").asInt() : 0;
             this.price = productData.has("price") ? productData.get("price").asDouble() : 0.0;

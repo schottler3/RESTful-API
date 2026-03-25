@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import dev.lucasschottler.api.square.Square;
 import dev.lucasschottler.database.DatabaseItem;
 import dev.lucasschottler.database.Databasing;
 import dev.lucasschottler.lakes.Lakes;
@@ -24,19 +25,23 @@ public class Actions {
     private final Databasing db;
     private static final Logger logger = LoggerFactory.getLogger(Actions.class);
     private final StateService stateService;
+    private final Square square;
+    private Lakes lakes;
     Amazon amazon = new Amazon();
 
-    public Actions(Databasing db, Lakes lakes, StateService stateService){
+    public Actions(Databasing db, Lakes lakes, StateService stateService, Square square){
         this.db = db;
         this.stateService = stateService;
+        this.square = square;
+        this.lakes = lakes;
     }
 
-    public boolean resetItem(int lakesid){
+    public boolean resetItem(String sku){
 
-        Map<String, Object> item = db.getData(lakesid, 1);
+        Map<String, Object> item = db.getData(sku);
 
         if(item == null){
-            logger.warn("Actions failed to reset lakesid: {} due to no results", lakesid);
+            logger.warn("Actions failed to reset sku: {} due to no results", sku);
             return false;
         }
 
@@ -45,35 +50,21 @@ public class Actions {
 
         logger.info("Actions update resolved dbItem for sku: {}", dbItem.sku);
 
-        LakesItem lakesItem = Lakes.getLakesItem(dbItem.lakesid);
+        LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
 
         logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
         
         db.resetItem(lakesItem);
 
-        logger.info("Actions reset resolved resetItem on database for sku: {}", dbItem.sku);
-
-        logger.info("Actions update pushing to amazon, sku: ()", dbItem.sku);
-        amazon.updateItem(dbItem);
-        logger.info("Actions update FINISHED pushing to amazon, sku: ()", dbItem.sku);
-
-        logger.info("Actions update updating inventory to ebay, sku: ()", dbItem.sku);
-        Ebay.createOrUpdateItem(dbItem);
-        logger.info("Actions update FINISHED updating inventory to ebay, sku: ()", dbItem.sku);
-
-        logger.info("Actions update offer to ebay, sku: ()", dbItem.sku);
-        Ebay.updateOffer(dbItem);
-        logger.info("Actions update FINISHED offer to ebay, sku: ()", dbItem.sku);
-
         return true;
     }
 
-    public boolean updateItem(int lakesid){
+    public boolean updateItem(String sku){
 
-        Map<String, Object> item = db.getData(lakesid, 1);
+        Map<String, Object> item = db.getData(sku);
 
         if(item == null){
-            logger.warn("Actions failed to update lakesid: {} due to no results", lakesid);
+            logger.warn("Actions failed to update sku: {} due to no results", sku);
             return false;
         }
 
@@ -81,11 +72,57 @@ public class Actions {
         DatabaseItem dbItem = new DatabaseItem(item);
         logger.info("Actions update resolved dbItem for sku: {}", dbItem.sku);
 
-        LakesItem lakesItem = Lakes.getLakesItem(dbItem.lakesid);
+        LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
         logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
 
         dbItem.updateItem(lakesItem, db);
         logger.info("Actions reset resolved updateItem on database for sku: {}", dbItem.sku);
+
+        if(dbItem.square_variation_id != null){
+
+            String square_quantity = square.getInventoryCountByVariationID(dbItem.square_variation_id);
+
+            logger.info("Actions: Square quantity found: {}", square_quantity);
+
+            if(square_quantity != null){
+                int quantity = Integer.parseInt(square.getInventoryCountByVariationID(dbItem.square_variation_id));
+                db.updateCustomQuantity(dbItem.sku, quantity);
+            }
+        }
+
+        return true;
+    }
+
+    public boolean updateAndPushItem(String sku){
+
+        Map<String, Object> item = db.getData(sku);
+
+        if(item == null){
+            logger.warn("Actions failed to update sku: {} due to no results", sku);
+            return false;
+        }
+
+        logger.info("Actions starting update on item: {}", item);
+        DatabaseItem dbItem = new DatabaseItem(item);
+        logger.info("Actions update resolved dbItem for sku: {}", dbItem.sku);
+
+        LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
+        logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
+
+        dbItem.updateItem(lakesItem, db);
+        logger.info("Actions reset resolved updateItem on database for sku: {}", dbItem.sku);
+
+        if(dbItem.square_variation_id != null){
+
+            String square_quantity = square.getInventoryCountByVariationID(dbItem.square_variation_id);
+
+            logger.info("Actions: Square quantity found: {}", square_quantity);
+
+            if(square_quantity != null){
+                int quantity = Integer.parseInt(square.getInventoryCountByVariationID(dbItem.square_variation_id));
+                db.updateCustomQuantity(dbItem.sku, quantity);
+            }
+        }
 
         logger.info("Actions update pushing to amazon, sku: ()", dbItem.sku);
         amazon.updateItem(dbItem);
@@ -143,7 +180,7 @@ public class Actions {
             logger.info("Actions starting on item: {}", item);
             DatabaseItem dbItem = new DatabaseItem(item);
 
-            LakesItem lakesItem = Lakes.getLakesItem(dbItem.lakesid);
+            LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
 
             dbItem.updateItem(lakesItem, db);
 

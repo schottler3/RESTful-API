@@ -1,4 +1,4 @@
-package dev.lucasschottler.api;
+package dev.lucasschottler.api.controllers;
 
 import java.util.List;
 import java.util.Map;
@@ -27,13 +27,13 @@ class BomController {
         this.db = db;
     }
 
-    @GetMapping("/{lakesid}")
-    public ResponseEntity<List<Map<String, Object>>> getBomData(@PathVariable int lakesid) {
-        return ResponseEntity.status(HttpStatus.OK).body(db.getBom(lakesid));
+    @GetMapping("/{parent_sku}")
+    public ResponseEntity<List<Map<String, Object>>> getBomData(@PathVariable String parent_sku) {
+        return ResponseEntity.status(HttpStatus.OK).body(db.getBom(parent_sku));
     }
 
-    @PutMapping(value = "/add/{lakesid}", consumes = "application/json")
-    public ResponseEntity<?> updateBomDependencies(@PathVariable Integer lakesid, @RequestBody(required = true) List<Map<String, Object>> requestBody) {
+    @PutMapping(value = "/add/{parent_sku}", consumes = "application/json")
+    public ResponseEntity<?> updateBomDependencies(@PathVariable String parent_sku, @RequestBody(required = true) List<Map<String, Object>> requestBody) {
 
         if (requestBody == null || requestBody.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Request body is missing or empty"));
@@ -46,7 +46,7 @@ class BomController {
         try {
             for (int i = 0; i < requestBody.size(); i++) {
                 Map<String, Object> bomItem = requestBody.get(i);
-                Integer child_id = (Integer) bomItem.get("child_id");
+                String child_sku = (String) bomItem.get("child_sku");
                 Object quantityObj = bomItem.get("quantity");
                 
                 Double quantity = null;
@@ -58,30 +58,30 @@ class BomController {
                     quantity = ((Number) quantityObj).doubleValue();
                 }
 
-                if (child_id == null || quantity == null) {
+                if (child_sku == null || quantity == null) {
                     logger.warn("Missing required fields in PUT: " + i);
                     failures.add(bomItem);
                     continue;
                 }
 
-                if(quantity == 0){
-                    int removed = db.removeBom(lakesid, child_id);
+                if(quantity == -1){
+                    int removed = db.removeBom(parent_sku, child_sku);
                     if (removed > 0) {
-                        logger.info("Success on bom removal - parent_id: {}, child_id: {}", lakesid, child_id);
+                        logger.info("Success on bom removal - parent_id: {}, child_id: {}", parent_sku, child_sku);
                     } else if (removed == 0) {
-                        logger.info("BOM item not found (skipping) - parent_id: {}, child_id: {}", lakesid, child_id);
+                        logger.info("BOM item not found (skipping) - parent_id: {}, child_id: {}", parent_sku, child_sku);
                     } else {
-                        logger.error("Failure on bom removal - parent_id: {}, child_id: {}", lakesid, child_id);
+                        logger.error("Failure on bom removal - parent_id: {}, child_id: {}", parent_sku, child_sku);
                         failures.add(bomItem);
                     }
                     continue;
                 }
                 
-                logger.info("Attempt on bom addition - parent_id: {}, child_id: {}, quantity: {}", lakesid, child_id, quantity);
-                if(db.addBom(lakesid, child_id, quantity)){
-                    logger.info("Success on bom addition - parent_id: {}, child_id: {}, quantity: {}", lakesid, child_id, quantity);
+                logger.info("Attempt on bom addition - parent_id: {}, child_id: {}, quantity: {}", parent_sku, child_sku, quantity);
+                if(db.addBom(parent_sku, child_sku, quantity)){
+                    logger.info("Success on bom addition - parent_id: {}, child_id: {}, quantity: {}", parent_sku, child_sku, quantity);
                 } else {
-                    logger.info("Failure on bom addition - parent_id: {}, child_id: {}, quantity: {}", lakesid, child_id, quantity);
+                    logger.info("Failure on bom addition - parent_id: {}, child_id: {}, quantity: {}", parent_sku, child_sku, quantity);
                     failures.add(bomItem);
                 }
             }

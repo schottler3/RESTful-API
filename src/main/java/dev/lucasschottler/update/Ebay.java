@@ -116,7 +116,15 @@ public class Ebay {
         double package_weight = dbItem.package_weight != null ? dbItem.package_weight : dbItem.weight + 1;
 
         String description = dbItem.description;
-        int quantity = dbItem.custom_quantity != null && dbItem.custom_quantity != 0 ? dbItem.custom_quantity : (int) (dbItem.quantity * .66);
+
+        Integer custom_quantity = dbItem.custom_quantity;
+        int lakes_quantity = dbItem.quantity;
+
+        logger.info("Ebay: Custom_quantity: {} lakes_quantity: {}", custom_quantity, lakes_quantity);
+
+        int quantity = custom_quantity != null && custom_quantity > 0 
+            ? custom_quantity 
+            : (int) (lakes_quantity * 0.66);
 
         // #region JSON_BUILD
 
@@ -302,7 +310,7 @@ public class Ebay {
 
         logger.info("Success updateOffer 1/2. SKU: {}", dbItem.sku);
 
-        return ebayService.updateOffer(dbItem);
+        return Ebay.updateOffer(dbItem);
     }
 
     public static boolean updateOffer(DatabaseItem dbItem){

@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import dev.lucasschottler.api.controllers.BaseController;
+import dev.lucasschottler.api.square.Square;
 import dev.lucasschottler.lakes.LakesItem;
 import dev.lucasschottler.update.Amazon;
 
@@ -41,8 +42,13 @@ public class DatabaseItem {
     public Double lakes_price;
     public Double custom_price;
     public Integer fulfillment;
+    public String square_variation_id;
+    public String parent_sku;
+    public Boolean is_ebay;
+    public Boolean is_amazon;
 
     private static final Logger logger = LoggerFactory.getLogger(BaseController.class);
+    private static final Square square = new Square();
 
     //Extraction of data from database Into an object
     public DatabaseItem(Map<String, Object> item){
@@ -73,16 +79,45 @@ public class DatabaseItem {
         this.lakes_price = (Double) item.get("lakes_price");
         this.custom_price = (Double) item.get("custom_price");
         this.fulfillment = (Integer) item.get("fulfillment");
+        this.square_variation_id = (String) item.get("square_variation_id");
+        this.parent_sku = (String) item.get("parent_sku");
+    }
+
+    public DatabaseItem(LakesItem item) {
+        this.lakesid = item.lakesid;
+        this.sku = item.sku;
+        this.quantity = item.quantity;
+        this.lakes_price = item.price;
+        this.width = item.width;
+        this.length = item.length;
+        this.height = item.height;
+        this.weight = item.weight;
+        this.type = item.type;
+        this.mpn = item.mpn;
+        this.title = item.title;
+        this.description = item.description;
+        this.upc = item.upc;
+        this.lakes_images = item.imageLink;
+        this.fulfillment = DEFAULT_FULFILLMENT;
+
+        HashMap<String, Double> amazonPrices = Amazon.getPrices(this.lakes_price);
+        this.minimum_price = amazonPrices.get("minimum_price");
+        this.calculated_price = amazonPrices.get("middle_price");
+        this.maximum_price = amazonPrices.get("maximum_price");
     }
 
     public void updateItem(LakesItem lakesItem, Databasing db){
+
+        if(this.lakesid == null || this.lakesid == -1){
+            this.lakesid = lakesItem.lakesid;
+        }
        
         if (this.quantity == null || this.quantity != lakesItem.quantity) {
             logger.info("Quantity Updated: {} -> {}", this.quantity, lakesItem.quantity);
             this.quantity = lakesItem.quantity;
 
-            if (!db.patchItem(this.lakesid, "quantity", String.valueOf(this.quantity))){
-                logger.warn("Database Item UPDATE failure on attribute = quantity: lakesid = {}", this.lakesid);
+            if (!db.patchItem(this.sku, "quantity", String.valueOf(this.quantity))){
+                logger.warn("Database Item UPDATE failure on attribute = quantity: sku = {}", this.sku);
             }
         }
 
@@ -97,17 +132,17 @@ public class DatabaseItem {
             this.calculated_price = amazonPrices.get("middle_price");
             this.maximum_price = amazonPrices.get("maximum_price");
 
-            if (!db.patchItem(this.lakesid, "lakes_price", String.valueOf(this.lakes_price))){
-                logger.warn("Database Item UPDATE failure on attribute = lakes_price: lakesid = {}", this.lakesid);
+            if (!db.patchItem(this.sku, "lakes_price", String.valueOf(this.lakes_price))){
+                logger.warn("Database Item UPDATE failure on attribute = lakes_price: sku = {}", this.sku);
             }
-            if (!db.patchItem(this.lakesid, "minimum_price", String.valueOf(this.minimum_price))){
-                logger.warn("Database Item UPDATE failure on attribute = minimum_price: lakesid = {}", this.lakesid);
+            if (!db.patchItem(this.sku, "minimum_price", String.valueOf(this.minimum_price))){
+                logger.warn("Database Item UPDATE failure on attribute = minimum_price: sku = {}", this.sku);
             }
-            if (!db.patchItem(this.lakesid, "calculated_price", String.valueOf(this.calculated_price))){
-                logger.warn("Database Item UPDATE failure on attribute = calculated_price: lakesid = {}", this.lakesid);
+            if (!db.patchItem(this.sku, "calculated_price", String.valueOf(this.calculated_price))){
+                logger.warn("Database Item UPDATE failure on attribute = calculated_price: sku = {}", this.sku);
             }
-            if (!db.patchItem(this.lakesid, "maximum_price", String.valueOf(this.maximum_price))){
-                logger.warn("Database Item UPDATE failure on attribute maximum_price: lakesid = {}", this.lakesid);
+            if (!db.patchItem(this.sku, "maximum_price", String.valueOf(this.maximum_price))){
+                logger.warn("Database Item UPDATE failure on attribute maximum_price: sku = {}", this.sku);
             }
         }
 
@@ -115,8 +150,8 @@ public class DatabaseItem {
             logger.info("Width Updated: {} -> {}", this.width, lakesItem.width);
             this.width = lakesItem.width;
 
-            if (!db.patchItem(this.lakesid, "width", String.valueOf(this.width))){
-                logger.warn("Database Item UPDATE failure on attribute = width: lakesid = {}", this.lakesid);
+            if (!db.patchItem(this.sku, "width", String.valueOf(this.width))){
+                logger.warn("Database Item UPDATE failure on attribute = width: sku = {}", this.sku);
             }
         }
 
@@ -124,8 +159,8 @@ public class DatabaseItem {
             logger.info("Length Updated: {} -> {}", this.length, lakesItem.length);
             this.length = lakesItem.length;
 
-            if (!db.patchItem(this.lakesid, "length", String.valueOf(this.length))){
-                logger.warn("Database Item UPDATE failure on attribute = length: lakesid = {}", this.lakesid);
+            if (!db.patchItem(this.sku, "length", String.valueOf(this.length))){
+                logger.warn("Database Item UPDATE failure on attribute = length: sku = {}", this.sku);
             }
         }
 
@@ -133,8 +168,8 @@ public class DatabaseItem {
             logger.info("Height Updated: {} -> {}", this.height, lakesItem.height);
             this.height = lakesItem.height;
 
-            if (!db.patchItem(this.lakesid, "height", String.valueOf(this.height))){
-                logger.warn("Database Item UPDATE failure on attribute = height: lakesid = {}", this.lakesid);
+            if (!db.patchItem(this.sku, "height", String.valueOf(this.height))){
+                logger.warn("Database Item UPDATE failure on attribute = height: sku = {}", this.sku);
             }
         }
 
@@ -142,8 +177,8 @@ public class DatabaseItem {
             logger.info("Weight Updated: {} -> {}", this.weight, lakesItem.weight);
             this.weight = lakesItem.weight;
 
-            if (!db.patchItem(this.lakesid, "weight", String.valueOf(this.weight))){
-                logger.warn("Database Item UPDATE failure on attribute = weight: lakesid = {}", this.lakesid);
+            if (!db.patchItem(this.sku, "weight", String.valueOf(this.weight))){
+                logger.warn("Database Item UPDATE failure on attribute = weight: sku = {}", this.sku);
             }
         }
 
@@ -151,8 +186,8 @@ public class DatabaseItem {
             logger.info("Type Updated: {} -> {}", this.type, lakesItem.type);
             this.type = lakesItem.type;
 
-            if (!db.patchItem(this.lakesid, "type", String.valueOf(this.type))){
-                logger.warn("Database Item UPDATE failure on attribute = type: lakesid = {}", this.lakesid);
+            if (!db.patchItem(this.sku, "type", String.valueOf(this.type))){
+                logger.warn("Database Item UPDATE failure on attribute = type: sku = {}", this.sku);
             }
         }
 
@@ -160,8 +195,8 @@ public class DatabaseItem {
             logger.info("MPN Updated: {} -> {}", this.mpn, lakesItem.mpn);
             this.mpn = lakesItem.mpn;
 
-            if (!db.patchItem(this.lakesid, "mpn", String.valueOf(this.mpn))){
-                logger.warn("Database Item UPDATE failure on attribute = mpn: lakesid = {}", this.lakesid);
+            if (!db.patchItem(this.sku, "mpn", String.valueOf(this.mpn))){
+                logger.warn("Database Item UPDATE failure on attribute = mpn: sku = {}", this.sku);
             }
         }
 
@@ -169,8 +204,8 @@ public class DatabaseItem {
             logger.info("Title Updated: {} -> {}", this.title, lakesItem.title);
             this.title = lakesItem.title;
 
-            if (!db.patchItem(this.lakesid, "title", String.valueOf(this.title))){
-                logger.warn("Database Item UPDATE failure on attribute = title: lakesid = {}", this.lakesid);
+            if (!db.patchItem(this.sku, "title", String.valueOf(this.title))){
+                logger.warn("Database Item UPDATE failure on attribute = title: sku = {}", this.sku);
             }
         }
 
@@ -178,8 +213,8 @@ public class DatabaseItem {
             logger.info("Description Updated: {} -> {}", this.description, lakesItem.description);
             this.description = lakesItem.description;
 
-            if (!db.patchItem(this.lakesid, "description", String.valueOf(this.description))){
-                logger.warn("Database Item UPDATE failure on attribute = description: lakesid = {}", this.lakesid);
+            if (!db.patchItem(this.sku, "description", String.valueOf(this.description))){
+                logger.warn("Database Item UPDATE failure on attribute = description: sku = {}", this.sku);
             }
         }
 
@@ -187,8 +222,8 @@ public class DatabaseItem {
             logger.info("UPC Updated: {} -> {}", this.upc, lakesItem.upc);
             this.upc = lakesItem.upc;
 
-            if (!db.patchItem(this.lakesid, "upc", String.valueOf(this.upc))){
-                logger.warn("Database Item UPDATE failure on attribute = upc: lakesid = {}", this.lakesid);
+            if (!db.patchItem(this.sku, "upc", String.valueOf(this.upc))){
+                logger.warn("Database Item UPDATE failure on attribute = upc: sku = {}", this.sku);
             }
         }
 
@@ -196,8 +231,8 @@ public class DatabaseItem {
             logger.info("SKU Updated: {} -> {}", this.sku, lakesItem.sku);
             this.sku = lakesItem.sku;
 
-            if (!db.patchItem(this.lakesid, "sku", String.valueOf(this.sku))){
-                logger.warn("Database Item UPDATE failure on attribute = sku: lakesid = {}", this.lakesid);
+            if (!db.patchItem(this.sku, "sku", String.valueOf(this.sku))){
+                logger.warn("Database Item UPDATE failure on attribute = sku: sku = {}", this.sku);
             }
         }
 
@@ -205,16 +240,26 @@ public class DatabaseItem {
             logger.info("Lakes Image Updated: {} -> {}", this.lakes_images, lakesItem.imageLink);
             this.lakes_images = lakesItem.imageLink;
 
-            if (!db.patchItem(this.lakesid, "lakes_images", String.valueOf(this.lakes_images))){
-                logger.warn("Database Item UPDATE failure on attribute = lakes_images: lakesid = {}", this.lakesid);
+            if (!db.patchItem(this.sku, "lakes_images", String.valueOf(this.lakes_images))){
+                logger.warn("Database Item UPDATE failure on attribute = lakes_images: sku = {}", this.sku);
             }
         }
 
         if (this.fulfillment == null){
             this.fulfillment = DEFAULT_FULFILLMENT;
 
-            if (!db.patchItem(this.lakesid, "fulfillment", String.valueOf(this.fulfillment))){
-                logger.warn("Database Item UPDATE failure on attribute = fulfillment: lakesid = {}", this.lakesid);
+            if (!db.patchItem(this.sku, "fulfillment", String.valueOf(this.fulfillment))){
+                logger.warn("Database Item UPDATE failure on attribute = fulfillment: sku = {}", this.sku);
+            }
+        }
+
+        if(this.square_variation_id == null){
+            logger.info("Database Item Updating square_variation_id");
+            try {
+                this.square_variation_id = square.getVariationID(sku);
+                logger.info("Database Item Updated square_variation_id to {}", this.square_variation_id);
+            } catch (Exception e){
+                logger.error("Database update was unable to get the variation ID! {}", sku);
             }
         }
     }
@@ -248,6 +293,10 @@ public class DatabaseItem {
                 "    lakes_price=" + lakes_price + ",\n" +
                 "    custom_price=" + custom_price + ",\n" +
                 "    fulfillment=" + fulfillment + "\n" +
+                "    square_variation_id=" + square_variation_id + "\n" +
+                "    parent_sku=" + parent_sku + "\n" +
+                "    is_ebay=" + is_ebay + "\n" +
+                "    is_amazon=" + is_amazon + "\n" +
                 '}';
     }
 

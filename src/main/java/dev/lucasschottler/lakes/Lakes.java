@@ -12,16 +12,20 @@ import org.slf4j.LoggerFactory;
 
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import dev.lucasschottler.update.Ebay;
 
 @Service
 public class Lakes {
     
-    private static final Logger logger = LoggerFactory.getLogger(Ebay.class);
-    private static final String ITEMLINK = "https://swymstore-v3pro-01.swymrelay.com/api/v2/provider/getPlatformProducts?pid=jn9XxHMVJRoc160vy%2BI3OVpfL8Wq3P19N1qklE2GjTk%3D";
+    private final Logger logger = LoggerFactory.getLogger(Ebay.class);
+    private final String ITEMLINK = "https://swymstore-v3pro-01.swymrelay.com/api/v2/provider/getPlatformProducts?pid=jn9XxHMVJRoc160vy%2BI3OVpfL8Wq3P19N1qklE2GjTk%3D";
+    private final HttpClient httpClient = HttpClient.newHttpClient();
 
     // #region TOOL_NAMES
-    private static final List<String> TOOL_NAMES = Arrays.asList(
+    private final List<String> TOOL_NAMES = Arrays.asList(
         "drill bit", "hammer", "ruler", "rule", "auger", "wrench", "grease", "flange",
         "head kit", "grinding guard", "die", "tip kit", "bit", "wheel", "blade", "tpi",
         "sleeve", "saw kit", "pin", "power source", "screwdriver", "chisel", "battery",
@@ -104,7 +108,7 @@ public class Lakes {
     );
     // #endregion
 
-    public static String getToolType(String title) {
+    public String getToolType(String title) {
         if (title == null) return "";
         
         String lowerTitle = title.toLowerCase();
@@ -121,9 +125,9 @@ public class Lakes {
         return longestTool;
     }
 
-    public static LakesItem getLakesItem(int id) {
+    public LakesItem getLakesItem(int lakesid) {
         try {
-            String payload = "productids=%5B" + id + "%5D&regid=JXNnJGEEgrP63HI0SQEsMlT-lqGvpin-gs-TMt4v7KZNhXb8BXV3AGU9VvweaaoRkXWjtvc25shVAKa5Zb5MaI2GlIuSXzYIpfEQ-l87Y2qaaVGq2dRdEzHBjvkTweZeZjjfPDycP_6LDolPIapsKuHskOVMaGSnI_JsLF20Py8&sessionid=qtwf2nkbfh6bbs8f9c4u8ux434l4vhnlb34okc9a675gabmmigagcv6ojyu8ou04";
+            String payload = "productids=%5B" + lakesid + "%5D&regid=JXNnJGEEgrP63HI0SQEsMlT-lqGvpin-gs-TMt4v7KZNhXb8BXV3AGU9VvweaaoRkXWjtvc25shVAKa5Zb5MaI2GlIuSXzYIpfEQ-l87Y2qaaVGq2dRdEzHBjvkTweZeZjjfPDycP_6LDolPIapsKuHskOVMaGSnI_JsLF20Py8&sessionid=qtwf2nkbfh6bbs8f9c4u8ux434l4vhnlb34okc9a675gabmmigagcv6ojyu8ou04";
 
             HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                 .uri(URI.create(ITEMLINK))
@@ -135,12 +139,23 @@ public class Lakes {
                 );
 
             HttpRequest request = requestBuilder.build();
-
-            HttpClient client = HttpClient.newHttpClient();
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             logger.info("Response status: " + response.statusCode());
             logger.info("Response body: " + response.body());
+
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode jsonNode = objectMapper.readTree(response.body());
+            
+            if (jsonNode.isArray()) {
+                if (jsonNode.size() == 0) {
+                    return null;
+                }
+                JsonNode firstElement = jsonNode.get(0);
+                if (!firstElement.path("status").asBoolean(false)) {
+                    return null;
+                }
+            }
 
             LakesItem lakesItem = new LakesItem(response.body());
 
@@ -150,4 +165,5 @@ public class Lakes {
         }
         return null;
     }
+
 }
