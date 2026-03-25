@@ -56,15 +56,14 @@ public class ReportController {
 
         logger.info("ReportController: Received request to add all new report item to inventory");
 
-        List<Integer> allNewLakesids = db.getAllNewReportIds();
+        List<Integer> allNewLakesids = db.getAllReportIds("new");
 
         for (Integer newItem : allNewLakesids) {
             LakesItem item = lakes.getLakesItem(newItem);
 
             logger.info("ReportController: Successfully pulled LakesItem from lakesid with sku: {}", item.sku);
 
-            DatabaseItem dbItem = new DatabaseItem();
-            dbItem.updateItem(item, db);
+            DatabaseItem dbItem = new DatabaseItem(item);
 
             logger.info("ReportController: Successfully made and casted DatabaseItem from LakesItem. sku: {}", dbItem.sku);
 
@@ -91,13 +90,12 @@ public class ReportController {
 
         logger.info("ReportController: Successfully pulled LakesItem from lakesid with sku: {}", item.sku);
 
-        DatabaseItem dbItem = new DatabaseItem();
-        dbItem.updateItem(item, db);
+        DatabaseItem dbItem = new DatabaseItem(item);
 
         logger.info("ReportController: Successfully made and casted DatabaseItem from LakesItem. sku: {}", dbItem.sku);
 
-        if(db.createItem(dbItem)){
-            logger.info("Report item added successfully: {}", lakesid);
+        if(db.createItem(dbItem) && db.deleteReportItem(lakesid)){
+            logger.info("Report item added successfully and deleted from report: {}", lakesid);
             Map<String, String> response = new HashMap<>();
             response.put("status", "success");
             return ResponseEntity.ok(response);

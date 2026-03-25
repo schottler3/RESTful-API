@@ -56,24 +56,44 @@ public class Actions {
         
         db.resetItem(lakesItem);
 
-        logger.info("Actions reset resolved resetItem on database for sku: {}", dbItem.sku);
-
-        logger.info("Actions update pushing to amazon, sku: ()", dbItem.sku);
-        amazon.updateItem(dbItem);
-        logger.info("Actions update FINISHED pushing to amazon, sku: ()", dbItem.sku);
-
-        logger.info("Actions update updating inventory to ebay, sku: ()", dbItem.sku);
-        Ebay.createOrUpdateItem(dbItem);
-        logger.info("Actions update FINISHED updating inventory to ebay, sku: ()", dbItem.sku);
-
-        logger.info("Actions update offer to ebay, sku: ()", dbItem.sku);
-        Ebay.updateOffer(dbItem);
-        logger.info("Actions update FINISHED offer to ebay, sku: ()", dbItem.sku);
-
         return true;
     }
 
     public boolean updateItem(String sku){
+
+        Map<String, Object> item = db.getData(sku);
+
+        if(item == null){
+            logger.warn("Actions failed to update sku: {} due to no results", sku);
+            return false;
+        }
+
+        logger.info("Actions starting update on item: {}", item);
+        DatabaseItem dbItem = new DatabaseItem(item);
+        logger.info("Actions update resolved dbItem for sku: {}", dbItem.sku);
+
+        LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
+        logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
+
+        dbItem.updateItem(lakesItem, db);
+        logger.info("Actions reset resolved updateItem on database for sku: {}", dbItem.sku);
+
+        if(dbItem.square_variation_id != null){
+
+            String square_quantity = square.getInventoryCountByVariationID(dbItem.square_variation_id);
+
+            logger.info("Actions: Square quantity found: {}", square_quantity);
+
+            if(square_quantity != null){
+                int quantity = Integer.parseInt(square.getInventoryCountByVariationID(dbItem.square_variation_id));
+                db.updateCustomQuantity(dbItem.sku, quantity);
+            }
+        }
+
+        return true;
+    }
+
+    public boolean updateAndPushItem(String sku){
 
         Map<String, Object> item = db.getData(sku);
 

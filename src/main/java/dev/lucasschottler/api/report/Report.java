@@ -40,6 +40,13 @@ public class Report {
         while (concurrentFails < 10) {
             int queryId = lastId + delta;
             logger.info("Querying lakesid: {}", queryId);
+
+            ReportItem rItem = new ReportItem(db.getReport(queryId, "new"), null);
+
+            if(rItem.lakesid != null){
+                delta++;
+                continue;
+            }
             
             LakesItem newItem = lakes.getLakesItem(queryId);
 

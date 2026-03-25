@@ -3,6 +3,7 @@ package dev.lucasschottler.api.controllers;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.catalina.connector.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -161,6 +162,22 @@ public class DataController {
         }
     }
 
+    @PostMapping("/item/{sku}")
+    public ResponseEntity<String> addNewItem(@PathVariable String sku){
+
+        logger.info("Data: Received request to add new sku: {}", sku);
+
+        if(db.createItem(sku)){
+            logger.info("Data: Successfully added new sku: {}", sku);
+            return ResponseEntity.ok("success");
+        }
+        else{
+            logger.info("Data: Failed to add new sku: {}", sku);
+            return ResponseEntity.status(400).body("failure");
+        }
+
+    }
+
     @GetMapping({"/update"})
     public ResponseEntity<String> isUpdating() {
         String state = stateService.getState(IS_UPDATING_KEY);
@@ -219,7 +236,7 @@ public class DataController {
     }
 
     @PostMapping("/update/{sku}")
-    public ResponseEntity<String> updateItem(@PathVariable String sku) {
+    public ResponseEntity<String> updateAndPushItem(@PathVariable String sku) {
         actions.updateItem(sku);
         return ResponseEntity.ok("Item updated successfully");
     }

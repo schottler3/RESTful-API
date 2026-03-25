@@ -4,10 +4,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +15,6 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import dev.lucasschottler.database.Databasing;
 import dev.lucasschottler.update.Ebay;
 
 @Service
@@ -26,11 +23,6 @@ public class Lakes {
     private final Logger logger = LoggerFactory.getLogger(Ebay.class);
     private final String ITEMLINK = "https://swymstore-v3pro-01.swymrelay.com/api/v2/provider/getPlatformProducts?pid=jn9XxHMVJRoc160vy%2BI3OVpfL8Wq3P19N1qklE2GjTk%3D";
     private final HttpClient httpClient = HttpClient.newHttpClient();
-    private Databasing db;
-
-    public Lakes(Databasing db){
-        this.db = db;
-    }
 
     // #region TOOL_NAMES
     private final List<String> TOOL_NAMES = Arrays.asList(

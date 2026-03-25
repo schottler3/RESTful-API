@@ -83,9 +83,34 @@ public class DatabaseItem {
         this.parent_sku = (String) item.get("parent_sku");
     }
 
-    public DatabaseItem(){}
+    public DatabaseItem(LakesItem item) {
+        this.lakesid = item.lakesid;
+        this.sku = item.sku;
+        this.quantity = item.quantity;
+        this.lakes_price = item.price;
+        this.width = item.width;
+        this.length = item.length;
+        this.height = item.height;
+        this.weight = item.weight;
+        this.type = item.type;
+        this.mpn = item.mpn;
+        this.title = item.title;
+        this.description = item.description;
+        this.upc = item.upc;
+        this.lakes_images = item.imageLink;
+        this.fulfillment = DEFAULT_FULFILLMENT;
+
+        HashMap<String, Double> amazonPrices = Amazon.getPrices(this.lakes_price);
+        this.minimum_price = amazonPrices.get("minimum_price");
+        this.calculated_price = amazonPrices.get("middle_price");
+        this.maximum_price = amazonPrices.get("maximum_price");
+    }
 
     public void updateItem(LakesItem lakesItem, Databasing db){
+
+        if(this.lakesid == null || this.lakesid == -1){
+            this.lakesid = lakesItem.lakesid;
+        }
        
         if (this.quantity == null || this.quantity != lakesItem.quantity) {
             logger.info("Quantity Updated: {} -> {}", this.quantity, lakesItem.quantity);

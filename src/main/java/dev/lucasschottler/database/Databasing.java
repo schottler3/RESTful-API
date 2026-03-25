@@ -225,6 +225,12 @@ public class Databasing {
         }
     }
 
+    public boolean createItem(String sku){
+        String sql = "INSERT INTO superior (sku) VALUES (?);";
+
+        return jdbcTemplate.update(sql, sku) > 0;
+    }
+
     public boolean deleteItem(String sku) {
         
         String sql = "DELETE FROM superior WHERE sku=?;";
@@ -407,16 +413,13 @@ public class Databasing {
     }
 
     public boolean addReportItem(LakesItem item) {
-        String sql = "INSERT INTO report (lakesid, title, description, sku, lakes_price, lakes_images, quantity, date_added) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-        if(jdbcTemplate.update(sql, item.lakesid, item.title, item.description, item.sku, item.price, item.imageLink, item.quantity, Timestamp.valueOf(LocalDateTime.now())) > 0){
-            deleteReportItem(item.lakesid);
-            return true;
-        }
-        return false;
+        String sql = "INSERT INTO report (lakesid, title, description, sku, lakes_price, lakes_images, quantity, date_added) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (lakesid) DO NOTHING";
+        return jdbcTemplate.update(sql, item.lakesid, item.title, item.description, item.sku, item.price, item.imageLink, item.quantity, Timestamp.valueOf(LocalDateTime.now())) > 0;
     }
 
     public boolean deleteReportItem(int lakesid){
-        String sql = "DELETE FROM report WHERE lakesid='?'";
+        String sql = "DELETE FROM report WHERE lakesid=?";
 
         return jdbcTemplate.update(sql,lakesid) > 0;
     }
@@ -428,18 +431,20 @@ public class Databasing {
         return jdbcTemplate.queryForList(sql);
     }
 
-    public Map<String,Object> getReport(int lakesid){
-
-        String sql = "SELECT * FROM report WHERE lakesid =" + lakesid + "ORDER BY sku ASC";
-
-        return jdbcTemplate.queryForMap(sql);
+    public Map<String, Object> getReport(int lakesid, String type) {
+        String sql = "SELECT * FROM report WHERE lakesid = ? AND type = ? LIMIT 1";
+        try {
+            return jdbcTemplate.queryForMap(sql, lakesid, type);
+        } catch (EmptyResultDataAccessException e) {
+            return null; 
+        }
     }
 
-    public List<Integer> getAllNewReportIds(){
+    public List<Integer> getAllReportIds(String type){
 
-        String sql = "SELECT lakesid FROM report WHERE type='new'";
+        String sql = "SELECT lakesid FROM report WHERE type=?";
 
-        return jdbcTemplate.queryForList(sql, Integer.class);
+        return jdbcTemplate.queryForList(sql, Integer.class, type);
 
     }
 }
