@@ -237,7 +237,7 @@ public class DataController {
 
     @PostMapping("/update/{sku}")
     public ResponseEntity<String> updateAndPushItem(@PathVariable String sku) {
-        actions.updateItem(sku);
+        actions.updateAndPushItem(sku);
         return ResponseEntity.ok("Item updated successfully");
     }
 
