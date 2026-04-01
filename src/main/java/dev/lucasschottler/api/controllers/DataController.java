@@ -106,6 +106,19 @@ public class DataController {
                     failures.add(change);
                     continue;
                 }
+
+                if (attribute.equals("custom_price") && Integer.parseInt(newValue) <= 0){
+                    logger.error("Failure on Change: sku: {}, attribute: {}, new: {}", sku, attribute, newValue);
+                    failures.add(change);
+                    continue;
+                }
+
+                if (attribute.equals("fulfillment") && Integer.parseInt(newValue) <= 0){
+                    logger.error("Failure on Change: sku: {}, attribute: {}, new: {}", sku, attribute, newValue);
+                    failures.add(change);
+                    continue;
+                }
+
                 
                 logger.info("Attempt on Change - sku: {}, attribute: {}, new: {}", sku, attribute, newValue);
                 if(db.patchItem(sku, attribute, newValue)){
