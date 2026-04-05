@@ -119,6 +119,11 @@ public class DataController {
                     continue;
                 }
 
+                if(attribute.equals("barcode_title") && newValue.length() > 27){
+                    logger.error("Failure on Change: sku: {}, attribute: {}, new: {}", sku, attribute, newValue);
+                    failures.add(change);
+                    continue;
+                }
                 
                 logger.info("Attempt on Change - sku: {}, attribute: {}, new: {}", sku, attribute, newValue);
                 if(db.patchItem(sku, attribute, newValue)){

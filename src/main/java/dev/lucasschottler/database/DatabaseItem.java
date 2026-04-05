@@ -43,9 +43,7 @@ public class DatabaseItem {
     public Double custom_price;
     public Integer fulfillment;
     public String square_variation_id;
-    public String parent_sku;
-    public Boolean is_ebay;
-    public Boolean is_amazon;
+    public String barcode_title;
 
     private static final Logger logger = LoggerFactory.getLogger(BaseController.class);
     private static final Square square = new Square();
@@ -80,7 +78,7 @@ public class DatabaseItem {
         this.custom_price = (Double) item.get("custom_price");
         this.fulfillment = (Integer) item.get("fulfillment");
         this.square_variation_id = (String) item.get("square_variation_id");
-        this.parent_sku = (String) item.get("parent_sku");
+        this.barcode_title = (String) item.get("barcode_title"); 
     }
 
     public DatabaseItem(LakesItem item) {
@@ -294,9 +292,7 @@ public class DatabaseItem {
                 "    custom_price=" + custom_price + ",\n" +
                 "    fulfillment=" + fulfillment + "\n" +
                 "    square_variation_id=" + square_variation_id + "\n" +
-                "    parent_sku=" + parent_sku + "\n" +
-                "    is_ebay=" + is_ebay + "\n" +
-                "    is_amazon=" + is_amazon + "\n" +
+                "    barcode_title=" + barcode_title + "\n" +
                 '}';
     }
 

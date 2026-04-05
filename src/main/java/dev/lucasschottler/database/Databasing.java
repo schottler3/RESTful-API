@@ -44,7 +44,7 @@ public class Databasing {
         "minimum_price", "calculated_price", "maximum_price", "lakes_price", "custom_price",
         // String columns
         "type", "mpn", "title", "description", "upc", "sku",
-        "milwaukee_images", "lakes_images"
+        "milwaukee_images", "lakes_images", "barcode_title"
     );
 
     private final JdbcTemplate jdbcTemplate;
@@ -58,8 +58,8 @@ public class Databasing {
             String sql = "SELECT * FROM superior ORDER BY sku ASC";
             return jdbcTemplate.queryForMap(sql);
         }
-        String sql = "SELECT * FROM superior WHERE sku LIKE ? ORDER BY sku ASC";
-        return jdbcTemplate.queryForMap(sql, sku);
+        String sql = "SELECT * FROM superior WHERE sku ILIKE ? ORDER BY sku ASC";
+        return jdbcTemplate.queryForMap(sql, "%" + sku + "%");
     }
 
     public java.util.Map<String, Object> getData(int lakesid) {
@@ -120,8 +120,16 @@ public class Databasing {
         // Try exact SKU match first
         String exactMatchSql = "SELECT * FROM superior WHERE sku = ? ORDER BY " + order + " LIMIT " + limit;
         List<Map<String, Object>> result = jdbcTemplate.queryForList(exactMatchSql, query);
-        
-        if(!result.isEmpty()){
+
+        if (!result.isEmpty()) {
+            return result;
+        }
+
+        // Fall back to substring match
+        String likeMatchSql = "SELECT * FROM superior WHERE sku ILIKE ? ORDER BY " + order + " LIMIT " + limit;
+        result = jdbcTemplate.queryForList(likeMatchSql, "%" + query + "%");
+
+        if (!result.isEmpty()) {
             return result;
         }
         
@@ -325,12 +333,6 @@ public class Databasing {
         }
     }
 
-    public List<String> getImages(String SKU) {
-        String sql = "SELECT milwaukee_images FROM superior WHERE sku LIKE ?";
-        String pattern = "%" + SKU + "%";
-        return jdbcTemplate.queryForList(sql, String.class, pattern);
-    }
-
     public List<java.util.Map<String, Object>> getBom(String parent_sku){
         String sql = "SELECT * FROM bom WHERE parent_sku = ?";
 
@@ -365,49 +367,14 @@ public class Databasing {
         }
     }
 
-    public boolean createAlt(DatabaseItem dbItem, String parentSku) {
-
-        logger.info("Databasing: Creating new alt item with sku: {}", dbItem.sku);
-
-        String sql = """
-            INSERT INTO superior (
-                lakesid, width, length, height, weight, type, mpn, title, description,
-                upc, quantity, custom_quantity, sku, milwaukee_images, package_width,
-                package_length, package_height, package_weight, lakes_images,
-                minimum_price, calculated_price, maximum_price, lakes_price,
-                custom_price, fulfillment, square_variation_id, parent_sku
-            ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-            )
-        """;
-
-        try {
-            int rows = jdbcTemplate.update(sql,
-                dbItem.lakesid, dbItem.width, dbItem.length, dbItem.height, dbItem.weight,
-                dbItem.type, dbItem.mpn, dbItem.title, dbItem.description, dbItem.upc,
-                dbItem.quantity, dbItem.custom_quantity, dbItem.sku, dbItem.milwaukee_images,
-                dbItem.package_width, dbItem.package_length, dbItem.package_height, dbItem.package_weight,
-                dbItem.lakes_images, dbItem.minimum_price, dbItem.calculated_price, dbItem.maximum_price,
-                dbItem.lakes_price, dbItem.custom_price, dbItem.fulfillment, dbItem.square_variation_id, parentSku
-            );
-
-            logger.info("Databasing: Alt item created with rows: {}", rows);
-            return rows > 0;
-
-        } catch (Exception e) {
-            logger.error("Databasing: Alt item creation failed for sku {}: {}", dbItem.sku, e.getMessage());
-            return false;
-        }
-    }
-
-    public List<java.util.Map<String,Object>> getAlts(String parentSku){
-        logger.info("Databasing received request for all alternatives for parentSku: {}", parentSku);
+    public List<java.util.Map<String,Object>> getAlts(String sku, String mpn){
+        logger.info("Databasing received request for all alternatives for parentSku: {}", mpn);
         
-        String sql = "SELECT * FROM superior WHERE parent_sku = ?;";
+        String sql = "SELECT * FROM superior WHERE mpn = ? AND sku != ?;";
 
-        List<java.util.Map<String,Object>> alternatives = jdbcTemplate.queryForList(sql,parentSku);
+        List<java.util.Map<String,Object>> alternatives = jdbcTemplate.queryForList(sql,mpn, sku);
 
-        logger.info("Databasing retrieved all alternatives for parentSku: {} - {} ", parentSku, alternatives.toString());
+        logger.info("Databasing retrieved all alternatives for parentSku: {} - {} ", mpn, alternatives.toString());
 
         return alternatives;
     }
