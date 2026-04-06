@@ -194,12 +194,15 @@ public class DataController {
         }
     }
 
-    @PostMapping("/item/{sku}")
-    public ResponseEntity<String> addNewItem(@PathVariable String sku){
+    @PostMapping("/item")
+    public ResponseEntity<String> addNewItem(@RequestBody(required = true) Map<String, String> requestBody) {
+
+        String sku = requestBody.get("sku");
+        String marketplaces = requestBody.get("marketplaces");
 
         logger.info("Data: Received request to add new sku: {}", sku);
 
-        if(db.createItem(sku)){
+        if(db.createItem(sku, marketplaces)){
             logger.info("Data: Successfully added new sku: {}", sku);
             return ResponseEntity.ok("success");
         }

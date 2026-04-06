@@ -47,15 +47,17 @@ class BomController {
             for (int i = 0; i < requestBody.size(); i++) {
                 Map<String, Object> bomItem = requestBody.get(i);
                 String child_sku = (String) bomItem.get("child_sku");
-                Object quantityObj = bomItem.get("quantity");
                 
-                Double quantity = null;
-                if (quantityObj instanceof Integer) {
-                    quantity = ((Integer) quantityObj).doubleValue();
-                } else if (quantityObj instanceof Double) {
-                    quantity = (Double) quantityObj;
-                } else if (quantityObj instanceof Number) {
-                    quantity = ((Number) quantityObj).doubleValue();
+                Object quantityRaw = bomItem.get("quantity");
+                Double quantity;
+
+                if (quantityRaw instanceof Number) {
+                    quantity = ((Number) quantityRaw).doubleValue();
+                } else if (quantityRaw instanceof String) {
+                    quantity = Double.parseDouble((String) quantityRaw);
+                } else {
+                    failures.add(bomItem);
+                    continue;
                 }
 
                 if (child_sku == null || quantity == null) {

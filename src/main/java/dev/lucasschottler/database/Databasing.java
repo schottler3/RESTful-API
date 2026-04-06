@@ -198,7 +198,7 @@ public class Databasing {
         }
     }
 
-    public boolean createItem(DatabaseItem dbItem) {
+    public boolean createItem(DatabaseItem dbItem, String marketplaces) {
         logger.info("Databasing: Creating new item with sku: {}", dbItem.sku);
 
         String sql = """
@@ -207,9 +207,9 @@ public class Databasing {
                 upc, quantity, custom_quantity, sku, milwaukee_images, package_width,
                 package_length, package_height, package_weight, lakes_images,
                 minimum_price, calculated_price, maximum_price, lakes_price,
-                custom_price, fulfillment, square_variation_id
+                custom_price, fulfillment, square_variation_id, marketplaces
             ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
         """;
 
@@ -220,7 +220,7 @@ public class Databasing {
                 dbItem.quantity, dbItem.custom_quantity, dbItem.sku, dbItem.milwaukee_images,
                 dbItem.package_width, dbItem.package_length, dbItem.package_height, dbItem.package_weight,
                 dbItem.lakes_images, dbItem.minimum_price, dbItem.calculated_price, dbItem.maximum_price,
-                dbItem.lakes_price, dbItem.custom_price, dbItem.fulfillment, dbItem.square_variation_id
+                dbItem.lakes_price, dbItem.custom_price, dbItem.fulfillment, dbItem.square_variation_id, marketplaces
             );
 
             logger.info("Databasing: createItem created with sku: {}", dbItem.sku);
@@ -233,10 +233,10 @@ public class Databasing {
         }
     }
 
-    public boolean createItem(String sku){
-        String sql = "INSERT INTO superior (sku) VALUES (?);";
+    public boolean createItem(String sku, String marketplaces){
+        String sql = "INSERT INTO superior (sku, marketplaces) VALUES (?,?);";
 
-        return jdbcTemplate.update(sql, sku) > 0;
+        return jdbcTemplate.update(sql, sku, marketplaces) > 0;
     }
 
     public boolean deleteItem(String sku) {

@@ -47,6 +47,7 @@ public class AltController {
 
         String mpn = requestBody.get("mpn");
         String alt_sku = requestBody.get("alt_sku");
+        String marketplaces = requestBody.get("marketplaces");
 
         String response = String.format("{\"message\": \"request failed\"}");
 
@@ -58,13 +59,17 @@ public class AltController {
             response = String.format("{\"message\": \"mpn invalid or missing\"}");
             return ResponseEntity.status(400).body(response);
         }
+        else if(marketplaces == null){
+            response = String.format("{\"message\": \"marketplaces invalid or missing\"}");
+            return ResponseEntity.status(400).body(response);
+        }
 
         logger.info("Alternative received request for adding a new alternative. mpn: {}, altSku: {}", mpn, alt_sku);
 
         DatabaseItem dbItem = new DatabaseItem(db.getData(mpn));
         dbItem.sku = alt_sku;
 
-        if(db.createItem(dbItem)){
+        if(db.createItem(dbItem, marketplaces)){
             response = String.format("{\"message\": \"%s created\"}", alt_sku);
 
             logger.info("Alternative successfully created with altSku: {}", alt_sku);

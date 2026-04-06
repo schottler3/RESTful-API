@@ -8,8 +8,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -52,41 +52,46 @@ public class ReportController {
     }
 
     @PostMapping("/new")
-    public ResponseEntity<Map<String,String>> addAllToInventory(){
+    public ResponseEntity<Map<String,String>> addInventoryItem(@RequestBody(required = true) Map<String, String> requestBody) {
 
-        logger.info("ReportController: Received request to add all new report item to inventory");
+        String lakesid = requestBody.get("lakesid");
+        String marketplaces = requestBody.get("marketplaces");
 
-        List<Integer> allNewLakesids = db.getAllReportIds("new");
-
-        for (Integer newItem : allNewLakesids) {
-            LakesItem item = lakes.getLakesItem(newItem);
-
-            logger.info("ReportController: Successfully pulled LakesItem from lakesid with sku: {}", item.sku);
-
-            DatabaseItem dbItem = new DatabaseItem(item);
-
-            logger.info("ReportController: Successfully made and casted DatabaseItem from LakesItem. sku: {}", dbItem.sku);
-
-            if(db.createItem(dbItem)){
-                logger.info("Report item added successfully: {}", item.lakesid);
-            }
-            else{
-                logger.info("Report items failed to be added: {}", item.lakesid);
-                return ResponseEntity.badRequest().build();
-            }
-        }
-        
         Map<String, String> response = new HashMap<>();
-        response.put("status", "success");
-        return ResponseEntity.ok(response);
-    }
 
-    @PostMapping("/new/{lakesid}")
-    public ResponseEntity<Map<String,String>> addInventoryItem(@PathVariable int lakesid){
+        if(lakesid == null){
+            logger.info("ReportController: Received request to add all new report item to inventory");
+
+            List<Integer> allNewLakesids = db.getAllReportIds("new");
+
+            for (Integer newItem : allNewLakesids) {
+                LakesItem item = lakes.getLakesItem(newItem);
+
+                logger.info("ReportController: Successfully pulled LakesItem from lakesid with sku: {}", item.sku);
+
+                DatabaseItem dbItem = new DatabaseItem(item);
+
+                logger.info("ReportController: Successfully made and casted DatabaseItem from LakesItem. sku: {}", dbItem.sku);
+
+                if(db.createItem(dbItem, marketplaces)){
+                    logger.info("Report item added successfully: {}", item.lakesid);
+                }
+                else{
+                    logger.info("Report items failed to be added: {}", item.lakesid);
+                    return ResponseEntity.badRequest().build();
+                }
+            }
+            response.put("status", "success");
+            return ResponseEntity.ok(response);
+        }
+        if(marketplaces == null){
+            response.put("status", "marketplaces");
+            return ResponseEntity.status(400).body(response);
+        }
 
         logger.info("ReportController: Received request to add new report item to inventory. Lakesid: {}", lakesid);
 
-        LakesItem item = lakes.getLakesItem(lakesid);
+        LakesItem item = lakes.getLakesItem(Integer.parseInt(lakesid));
 
         logger.info("ReportController: Successfully pulled LakesItem from lakesid with sku: {}", item.sku);
 
@@ -94,9 +99,8 @@ public class ReportController {
 
         logger.info("ReportController: Successfully made and casted DatabaseItem from LakesItem. sku: {}", dbItem.sku);
 
-        if(db.createItem(dbItem) && db.deleteReportItem(lakesid)){
+        if(db.createItem(dbItem, marketplaces) && db.deleteReportItem(Integer.parseInt(lakesid))){
             logger.info("Report item added successfully and deleted from report: {}", lakesid);
-            Map<String, String> response = new HashMap<>();
             response.put("status", "success");
             return ResponseEntity.ok(response);
         }
