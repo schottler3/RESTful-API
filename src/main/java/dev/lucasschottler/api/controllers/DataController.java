@@ -1,9 +1,9 @@
 package dev.lucasschottler.api.controllers;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.catalina.connector.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import dev.lucasschottler.api.Actions;
 import dev.lucasschottler.database.Databasing;
+import dev.lucasschottler.update.Amazon;
 import dev.lucasschottler.api.StateService;
 import dev.lucasschottler.api.square.Square;
 
@@ -107,10 +108,23 @@ public class DataController {
                     continue;
                 }
 
-                if (attribute.equals("custom_price") && Integer.parseInt(newValue) <= 0){
-                    logger.error("Failure on Change: sku: {}, attribute: {}, new: {}", sku, attribute, newValue);
-                    failures.add(change);
-                    continue;
+                if (attribute.equals("custom_price")){
+                    if(Double.parseDouble(newValue) <= 0){
+                        logger.error("Failure on Change: sku: {}, attribute: {}, new: {}", sku, attribute, newValue);
+                        failures.add(change);
+                        continue;
+                    }
+                    HashMap<String,Double> amazonPrices = Amazon.getPrices(Double.parseDouble(newValue));
+
+                    double minimum_price = amazonPrices.get("minimum_price");
+                    double calculated_price = amazonPrices.get("middle_price");
+                    double maximum_price = amazonPrices.get("maximum_price");
+
+                    logger.info("Data: Updating prices, minimum: {}, calculated: {}, maximum: {}", minimum_price, calculated_price, maximum_price);
+
+                    db.patchItem(sku, "minimum_price", String.valueOf(minimum_price));
+                    db.patchItem(sku, "calculated_price", String.valueOf(calculated_price));
+                    db.patchItem(sku, "maximum_price", String.valueOf(maximum_price));
                 }
 
                 if (attribute.equals("fulfillment") && Integer.parseInt(newValue) <= 0){
@@ -119,7 +133,7 @@ public class DataController {
                     continue;
                 }
 
-                if(attribute.equals("barcode_title") && newValue.length() > 27){
+                if(attribute.equals("barcode_title") && newValue.length() > 36){
                     logger.error("Failure on Change: sku: {}, attribute: {}, new: {}", sku, attribute, newValue);
                     failures.add(change);
                     continue;
@@ -259,12 +273,12 @@ public class DataController {
         return ResponseEntity.ok("Item updated successfully");
     }
 
-    @GetMapping("/square/{sku}")
-    public ResponseEntity<String> getInventoryCountBySku(@PathVariable String sku){
+    @GetMapping("/square/{mpn}")
+    public ResponseEntity<String> getInventoryCountBySku(@PathVariable String mpn){
         try{        
-            return ResponseEntity.ok(square.getInventoryCountBySKU(sku));
+            return ResponseEntity.ok(square.getInventoryCountByMpn(mpn));
         } catch (Exception e){
-            return ResponseEntity.status(500).body("status: failed to get sku");
+            return ResponseEntity.status(500).body("status: failed to get mpn");
         }
     }
 

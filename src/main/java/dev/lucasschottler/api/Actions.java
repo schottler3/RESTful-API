@@ -106,35 +106,33 @@ public class Actions {
         DatabaseItem dbItem = new DatabaseItem(item);
         logger.info("Actions update resolved dbItem for sku: {}", dbItem.sku);
 
-        LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
-        logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
+        if(dbItem.lakesid != null){
+            LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
+            logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
 
-        dbItem.updateItem(lakesItem, db);
-        logger.info("Actions reset resolved updateItem on database for sku: {}", dbItem.sku);
+            dbItem.updateItem(lakesItem, db);
+            logger.info("Actions update resolved updateItem on database for sku: {}", dbItem.sku);
+        }
+        //logger.info(dbItem.toString());
 
-        if(dbItem.square_variation_id != null){
-
-            String square_quantity = square.getInventoryCountByVariationID(dbItem.square_variation_id);
-
-            logger.info("Actions: Square quantity found: {}", square_quantity);
-
-            if(square_quantity != null){
-                int quantity = Integer.parseInt(square.getInventoryCountByVariationID(dbItem.square_variation_id));
-                db.updateCustomQuantity(dbItem.sku, quantity);
-            }
+        if(dbItem.marketplaces.contains("amazon")){
+            logger.info("Actions update pushing to amazon, sku: {}", dbItem.sku);
+            amazon.updateItem(dbItem);
+            logger.info("Actions update FINISHED pushing to amazon, sku: {}", dbItem.sku);
         }
 
-        logger.info("Actions update pushing to amazon, sku: ()", dbItem.sku);
-        amazon.updateItem(dbItem);
-        logger.info("Actions update FINISHED pushing to amazon, sku: ()", dbItem.sku);
+        if(dbItem.marketplaces.contains("ebay")){
+            logger.info("Actions update updating inventory to ebay, sku: {}", dbItem.sku);
+            Ebay.createOrUpdateItem(dbItem);
+            logger.info("Actions update FINISHED updating inventory to ebay, sku: {}", dbItem.sku);
+            
+            logger.info("Actions update offer to ebay, sku: {}", dbItem.sku);
+            Ebay.updateOffer(dbItem);
+            logger.info("Actions update FINISHED offer to ebay, sku: {}", dbItem.sku);
+        }
+        
 
-        logger.info("Actions update updating inventory to ebay, sku: ()", dbItem.sku);
-        Ebay.createOrUpdateItem(dbItem);
-        logger.info("Actions update FINISHED updating inventory to ebay, sku: ()", dbItem.sku);
-
-        logger.info("Actions update offer to ebay, sku: ()", dbItem.sku);
-        Ebay.updateOffer(dbItem);
-        logger.info("Actions update FINISHED offer to ebay, sku: ()", dbItem.sku);
+        
 
         return true;
     }

@@ -44,6 +44,7 @@ public class DatabaseItem {
     public Integer fulfillment;
     public String square_variation_id;
     public String barcode_title;
+    public String marketplaces;
 
     private static final Logger logger = LoggerFactory.getLogger(BaseController.class);
     private static final Square square = new Square();
@@ -79,6 +80,7 @@ public class DatabaseItem {
         this.fulfillment = (Integer) item.get("fulfillment");
         this.square_variation_id = (String) item.get("square_variation_id");
         this.barcode_title = (String) item.get("barcode_title"); 
+        this.marketplaces = (String) item.get("marketplaces");
     }
 
     public DatabaseItem(LakesItem item) {
@@ -119,12 +121,51 @@ public class DatabaseItem {
             }
         }
 
-        if (this.lakes_price == null || this.lakes_price != lakesItem.price || this.lakes_price != this.custom_price) {
+        Integer squareQuantity = Integer.parseInt(square.getInventoryCountByMpn(this.mpn));
+
+        if(this.custom_quantity == null || (squareQuantity != null && squareQuantity != this.custom_quantity)){
+            logger.info("Custom Quantity (Square) Updated: {} -> {}", this.custom_quantity, squareQuantity);
+
+            this.custom_quantity = squareQuantity;
+
+            if (!db.patchItem(this.sku, "custom_quantity", String.valueOf(squareQuantity))){
+                logger.warn("Database Item UPDATE failure on attribute = custom_quantity: sku = {}", this.sku);
+            }
+        }
+
+        if(this.lakes_price == null || this.lakes_price != lakesItem.price){
+
+            this.lakes_price = lakesItem.price;
+
+            if (db.patchItem(this.sku, "lakes_price", String.valueOf(this.lakes_price))){
+                logger.info("Database Item UPDATE success on attribute = lakes_price: sku = {}", this.sku);
+            }
+
+            if(this.custom_price == null || this.custom_price <= 0){
+                HashMap<String,Double> amazonPrices = Amazon.getPrices(lakesItem.price);
+
+                double minimum_price = amazonPrices.get("minimum_price");
+                double calculated_price = amazonPrices.get("middle_price");
+                double maximum_price = amazonPrices.get("maximum_price");
+
+                this.minimum_price = minimum_price;
+                this.calculated_price = calculated_price;
+                this.maximum_price = maximum_price;
+
+                logger.info("Data: Updating prices, minimum: {}, calculated: {}, maximum: {}", minimum_price, calculated_price, maximum_price);
+
+                db.patchItem(sku, "minimum_price", String.valueOf(minimum_price));
+                db.patchItem(sku, "calculated_price", String.valueOf(calculated_price));
+                db.patchItem(sku, "maximum_price", String.valueOf(maximum_price));
+            }
+        }
+
+        if (this.custom_price == null || this.custom_price == 0 && (this.lakes_price == null || this.lakes_price != lakesItem.price)) {
             logger.info("Price Updated: {} -> {}", this.lakes_price, lakesItem.price);
             this.lakes_price = lakesItem.price;
 
             //minimum_price, middle_price, maximum_price
-            HashMap<String,Double> amazonPrices = Amazon.getPrices(this.custom_price != null ? this.custom_price : this.lakes_price);
+            HashMap<String,Double> amazonPrices = Amazon.getPrices(this.lakes_price);
 
             this.minimum_price = amazonPrices.get("minimum_price");
             this.calculated_price = amazonPrices.get("middle_price");
@@ -293,6 +334,7 @@ public class DatabaseItem {
                 "    fulfillment=" + fulfillment + "\n" +
                 "    square_variation_id=" + square_variation_id + "\n" +
                 "    barcode_title=" + barcode_title + "\n" +
+                "    marketplaces=" + marketplaces + "\n" +
                 '}';
     }
 

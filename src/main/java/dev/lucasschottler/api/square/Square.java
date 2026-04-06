@@ -21,19 +21,19 @@ public class Square {
     private static final Logger logger = LoggerFactory.getLogger(Square.class);
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public String getInventoryCountBySKU(String sku) {
+    public String getInventoryCountByMpn(String mpn) {
 
         String variationId;
 
         try {
-            variationId = getVariationID(sku);
+            variationId = getVariationID(mpn);
         } catch (Exception e) {
-            logger.error("Square threw an error trying to get the variation ID! SKU: {}", sku, e);
+            logger.error("Square threw an error trying to get the variation ID! mpn: {}", mpn, e);
             return null;
         }
 
         if (variationId == null) {
-            logger.info("Square was unable to return the variation ID! SKU: {}", sku);
+            logger.info("Square was unable to return the variation ID! mpn: {}", mpn);
             return null;
         }
 
@@ -42,11 +42,11 @@ public class Square {
         try {
             inventoryObject = getInventoryObject(variationId);
         } catch (Exception e) {
-            logger.error("Square threw an exception getting the inventory object for SKU: {}", sku, e);
+            logger.error("Square threw an exception getting the inventory object for mpn: {}", mpn, e);
             return null;
         }
 
-        return extractQuantityFromInventoryObject(inventoryObject, sku);
+        return extractQuantityFromInventoryObject(inventoryObject, mpn);
     }
 
     public String getInventoryCountByVariationID(String variationId) {
@@ -97,8 +97,8 @@ public class Square {
         return mapper.readTree(inventoryResponse.body());
     }
 
-    public String getVariationID(String sku) throws IOException, InterruptedException {
-        logger.info("Square received request for SKU: {}", sku);
+    public String getVariationID(String mpn) throws IOException, InterruptedException {
+        logger.info("Square received request for mpn: {}", mpn);
 
         String searchBody = """
             {
@@ -110,7 +110,7 @@ public class Square {
                     }
                 }
             }
-            """.formatted(sku);
+            """.formatted(mpn);
 
         HttpRequest searchRequest = HttpRequest.newBuilder()
             .uri(URI.create("https://connect.squareup.com/v2/catalog/search"))
@@ -133,7 +133,7 @@ public class Square {
         JsonNode objects = searchJson.path("objects");
 
         if (objects.isEmpty()) {
-            logger.info("Square found no SKU: {}", sku);
+            logger.info("Square found no SKU: {}", mpn);
             return null;
         }
 

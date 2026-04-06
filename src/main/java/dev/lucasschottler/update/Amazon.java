@@ -24,7 +24,7 @@ public class Amazon {
     private final static String TOKEN = System.getenv("AMAZON_TOKEN");
     private final static String CLIENT_SECRET = System.getenv("AMAZON_CLIENT_SECRET");
     private final static String IDENTIFIER = System.getenv("AMAZON_IDENTIFIER");
-    private static final Logger logger = LoggerFactory.getLogger(Ebay.class);
+    private static final Logger logger = LoggerFactory.getLogger(Amazon.class);
     
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final HttpClient httpClient = HttpClient.newHttpClient();
@@ -32,7 +32,7 @@ public class Amazon {
     private final static String ENDPOINT = "https://sellingpartnerapi-na.amazon.com";
     private final static String MARKETPLACE_ID = "ATVPDKIKX0DER";
 
-    private String accessToken;
+    private String storedAccessToken;
     private long tokenExpiresAt = 0;
 
     public static HashMap<String, Double> getPrices(double basePrice) {
@@ -102,26 +102,32 @@ public class Amazon {
     private String getValidAccessToken() {
         long currentTime = System.currentTimeMillis();
         
-        if (accessToken == null || currentTime >= tokenExpiresAt - (5 * 60 * 1000)) {
-            accessToken = refreshAccessToken();
-            if (accessToken != null && !accessToken.isEmpty()) {
+        if (storedAccessToken == null || currentTime >= tokenExpiresAt - (5 * 60 * 1000)) {
+            storedAccessToken = refreshAccessToken();
+            if (storedAccessToken != null && !storedAccessToken.isEmpty()) {
                 tokenExpiresAt = currentTime + (3600 * 1000);
             }
         }
         
-        return accessToken;
+        return storedAccessToken;
     }
 
     public boolean updateItem(DatabaseItem dbItem){
     
+        logger.info("Amazon: Verifying integrity of accessToken...");
         String accessToken = getValidAccessToken();
+        logger.info("Amazon: Verified accessToken status.");
         
         if(accessToken == null || accessToken.equals("")) {
-            logger.warn("Amazon Access Token Failed, SKU: {}", dbItem.sku);
+            logger.warn("Amazon: accessToken Failed, SKU: {}", dbItem.sku);
             return false;
         }
 
-        final String get_url = ENDPOINT + "/listings/2021-08-01/items/" + SELLER_ID + "/" + dbItem.sku + "?marketplaceIds=" + MARKETPLACE_ID + "&issueLocale=en_US&includedData=attributes";
+        final String get_url = ENDPOINT + "/listings/2021-08-01/items/" + SELLER_ID + "/" 
+            + dbItem.sku.trim().replace(" ", "%20") 
+            + "?marketplaceIds=" + MARKETPLACE_ID + "&issueLocale=en_US&includedData=attributes";
+
+        logger.info("Amazon getUrl = {}", get_url);
 
         HttpRequest getRequest = HttpRequest.newBuilder()
             .uri(URI.create(get_url))
@@ -130,7 +136,16 @@ public class Amazon {
             .GET()
             .build();
 
+        logger.info("Amazon: Getting item data for sku: {}", dbItem.sku);
+
         HttpResponse<String> get_response = doRequest(getRequest, dbItem.sku);
+
+        if (get_response == null) {
+            logger.error("Amazon updateItem got null response, sku: {}", dbItem.sku);
+            return false;
+        }
+
+        logger.info("Amazon updateItem getItem returned: {}", get_response.statusCode());
 
         if(get_response.statusCode() == 404){
             logger.warn("Amazon item not found or doesn't exist. sku: {}", dbItem.sku);
@@ -288,7 +303,7 @@ public class Amazon {
 
         logger.info("Amazon PATCH request body, sku: {}, body: {}", dbItem.sku, requestBody.toString());
 
-        final String patch_url = ENDPOINT + "/listings/2021-08-01/items/" + SELLER_ID + "/" + dbItem.sku + "?marketplaceIds=" + MARKETPLACE_ID;
+        final String patch_url = ENDPOINT + "/listings/2021-08-01/items/" + SELLER_ID + "/" + dbItem.sku.trim().replace(" ", "%20") + "?marketplaceIds=" + MARKETPLACE_ID;
 
         HttpRequest patchRequest = HttpRequest.newBuilder()
             .uri(URI.create(patch_url))
@@ -324,8 +339,7 @@ public class Amazon {
                 .POST(HttpRequest.BodyPublishers.ofString(formData))
                 .build();
 
-            HttpResponse<String> response = doRequest(request, "ACCESS_TOKEN");
-            
+            HttpResponse<String> response = doRequest(request, "ACCESS_TOKEN");            
             if(response == null || response.statusCode() != 200) {
                 logger.error("Amazon token refresh failed. Status: {}", 
                     response != null ? response.statusCode() : "null");

@@ -27,6 +27,8 @@ public class Ebay {
     private static final Ebay ebayService = new Ebay();
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final HttpClient httpClient = HttpClient.newHttpClient();
+
+    private String globalRefreshToken;
     
     public Map<String, Object> getRefreshToken() {
 
@@ -94,17 +96,6 @@ public class Ebay {
     public static boolean createOrUpdateItem(DatabaseItem dbItem) {
         
         logger.info("Ebay createOrUpdate START: sku: {}", dbItem.sku);
-
-        // Get fresh token
-        Map<String, Object> tokenData = ebayService.getRefreshToken();
-        
-        if (tokenData == null) {
-            logger.error("Failed to refresh token for sku: {}", dbItem.sku);
-            return false;
-        }
-        
-        final String TOKEN = (String) tokenData.get("access_token");
-        //final String TOKEN = System.getenv("EBAY_TOKEN");
 
         final String API = System.getenv("EBAY_INVENTORY_API_END");
         final String MARKETPLACEID = "EBAY_US";
@@ -201,23 +192,42 @@ public class Ebay {
             return false;
         }
         
-        String url = API + "inventory_item/" + dbItem.sku;
+        String url = API + "inventory_item/" + dbItem.sku.trim().replace(" ", "%20");
 
         logger.info("Ebay createOrUpdate 1: sku: {}", dbItem.sku);
         
-        // Build HTTP request
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(url))
-            .header("Authorization", "Bearer " + TOKEN)
-            .header("Content-Type", "application/json")
-            .header("Content-Language", "en-US")
-            .header("X-EBAY-C-MARKETPLACE-ID", MARKETPLACEID)
-            .PUT(HttpRequest.BodyPublishers.ofString(jsonBody))
-            .build();
+        for(int i = 0; i < 3; i++){
+            if(ebayService.globalRefreshToken == null){
+                // Get fresh token
+                Map<String, Object> tokenData = ebayService.getRefreshToken();
+                
+                if (tokenData == null) {
+                    logger.error("Failed to refresh token for sku: {}", dbItem.sku);
+                    return false;
+                }
+                
+                final String TOKEN = (String) tokenData.get("access_token");
+                ebayService.globalRefreshToken = TOKEN;
+            }
 
-        if(!ebayService.doRequest(request, dbItem.sku)) {
-            logger.error("Ebay Data PUT FAILED. sku: {}", dbItem.sku);
+             // Build HTTP request
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .header("Authorization", "Bearer " + ebayService.globalRefreshToken)
+                .header("Content-Type", "application/json")
+                .header("Content-Language", "en-US")
+                .header("X-EBAY-C-MARKETPLACE-ID", MARKETPLACEID)
+                .PUT(HttpRequest.BodyPublishers.ofString(jsonBody))
+                .build();
+
+            if(!ebayService.doRequest(request, dbItem.sku)) {
+                logger.error("Ebay Data PUT FAILED. sku: {}", dbItem.sku);
+            }
+            else{
+                break;
+            }
         }
+       
 
         logger.info("Ebay createOrUpdateItem SUCCESS. SKU: {}", dbItem.sku);
         
@@ -226,7 +236,7 @@ public class Ebay {
 
     private String getOfferId(String sku, String TOKEN){
 
-        final String offer_url = System.getenv("EBAY_INVENTORY_API_END") + "offer?sku=" + sku;
+        final String offer_url = System.getenv("EBAY_INVENTORY_API_END") + "offer?sku=" + sku.trim().replace(" ", "%20");
 
         // Build HTTP request
         HttpRequest inventoryRequest = HttpRequest.newBuilder()
@@ -289,7 +299,7 @@ public class Ebay {
 
         // #endregion 
 
-        final String inventory_url = API + "inventory_item/" + dbItem.sku;
+        final String inventory_url = API + "inventory_item/" + dbItem.sku.trim().replace(" ", "%20");
 
         logger.info("InventoryUpdateData: {}", inventoryUpdateData);
 
@@ -336,7 +346,7 @@ public class Ebay {
         price.put("currency", "USD");
         price.put("value", dbItem.custom_price != null ? dbItem.custom_price : dbItem.calculated_price);
 
-        final String offer_url = API + "offer/" +  ebayService.getOfferId(dbItem.sku, TOKEN);
+        final String offer_url = API + "offer/" +  ebayService.getOfferId(dbItem.sku.trim().replace(" ", "%20"), TOKEN);
 
         // Build HTTP request
         HttpRequest offerRequest = HttpRequest.newBuilder()
@@ -382,6 +392,11 @@ public class Ebay {
             } else {
                 logger.error("Ebay Data PUT ERROR: sku: {}, status: {}, attempt: {}, body: {}", 
                     sku, response.statusCode(), i + 1, response.body());
+                
+                if(response.statusCode() == 401){
+                    ebayService.globalRefreshToken = null;
+                    return false;
+                }
                 
                 // Don't retry on client errors (4xx)
                 if (response.statusCode() >= 400 && response.statusCode() < 500) {

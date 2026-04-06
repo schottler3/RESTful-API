@@ -40,8 +40,6 @@ services:
   api:
     build: .
     container_name: api-dev
-    volumes:
-      - ./target:/app/target
     environment:
       SPRING_DEVTOOLS_RESTART_ENABLED: true
       SPRING_DATA_REDIS_HOST: redis
@@ -80,8 +78,8 @@ services:
     develop:
       watch:
         - action: sync+restart
-          path: ./src
-          target: /app/src
+          path: ./target
+          target: /app/target
         - action: rebuild
           path: pom.xml
 
