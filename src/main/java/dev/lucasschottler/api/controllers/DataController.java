@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import dev.lucasschottler.api.Actions;
+import dev.lucasschottler.database.DatabaseItem;
 import dev.lucasschottler.database.Databasing;
 import dev.lucasschottler.update.Amazon;
 import dev.lucasschottler.api.StateService;
@@ -109,12 +110,21 @@ public class DataController {
                 }
 
                 if (attribute.equals("custom_price")){
-                    if(Double.parseDouble(newValue) <= 0){
+                    Double toUsePrice = Double.parseDouble(newValue);
+                    if(toUsePrice < 0){
                         logger.error("Failure on Change: sku: {}, attribute: {}, new: {}", sku, attribute, newValue);
                         failures.add(change);
                         continue;
                     }
-                    HashMap<String,Double> amazonPrices = Amazon.getPrices(Double.parseDouble(newValue));
+                    else if(toUsePrice == null || toUsePrice == 0){
+                        toUsePrice = new DatabaseItem(db.getData(sku)).lakes_price;
+                    }
+
+                    if(toUsePrice == null){
+                        toUsePrice = -1.0;
+                    }
+
+                    HashMap<String,Double> amazonPrices = Amazon.getPrices(toUsePrice);
 
                     double minimum_price = amazonPrices.get("minimum_price");
                     double calculated_price = amazonPrices.get("middle_price");

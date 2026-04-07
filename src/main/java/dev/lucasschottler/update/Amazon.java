@@ -194,7 +194,8 @@ public class Amazon {
             ObjectNode ourPriceSchedule = mapper.createObjectNode();
             ArrayNode ourPriceScheduleArr = mapper.createArrayNode();
             ObjectNode ourPriceValue = mapper.createObjectNode();
-            ourPriceValue.put("value_with_tax", dbItem.custom_price != null ? dbItem.custom_price : dbItem.calculated_price);
+
+            ourPriceValue.put("value_with_tax", dbItem.calculated_price);
             ourPriceScheduleArr.add(ourPriceValue);
             ourPriceSchedule.set("schedule", ourPriceScheduleArr);
             ourPrice.add(ourPriceSchedule);

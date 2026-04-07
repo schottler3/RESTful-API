@@ -344,7 +344,8 @@ public class Ebay {
         offerUpdateNode.put("availableQuantity", dbItem.custom_quantity != null && dbItem.custom_quantity > 0 ? dbItem.custom_quantity : (int) (dbItem.quantity * .66));
 
         price.put("currency", "USD");
-        price.put("value", dbItem.custom_price != null ? dbItem.custom_price : dbItem.calculated_price);
+
+        price.put("value", dbItem.calculated_price);
 
         final String offer_url = API + "offer/" +  ebayService.getOfferId(dbItem.sku.trim().replace(" ", "%20"), TOKEN);
 

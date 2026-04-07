@@ -68,15 +68,70 @@ public class Actions {
             return false;
         }
 
+        logger.info("Actions: Testing for Bom relations...");
+        List<Map<String,Object>> bom = db.getBom(sku);
+
+        logger.info("Actions - Bom: Got the bom for sku: {}, BOM: {}", sku, bom.toString());
+
+        Double bulkSplitPrice = 0.0;
+
+        if(bom != null && bom.size() > 0){
+
+            logger.info("Actions: Found bom relations!");
+
+            for (Map<String,Object> dependency : bom){
+                String dependency_sku = (String) dependency.get("sku");
+                if(dependency_sku != null){
+
+                    logger.info("Actions - Bom: updating item for dependency: {}", dependency_sku);
+
+                    updateItem(dependency_sku);
+
+                    logger.info("Actions - Bom: updated and now fetching data again for dependency: {}", dependency_sku);
+
+                    Map<String,Object> dependency_data = db.getData(dependency_sku);
+
+                    logger.info("Actions - Bom: fetched now parsing prices for dependency: {}", dependency_sku);
+
+                    Double lakes_price = (Double) dependency_data.get("lakes_price");
+                    Double custom_price = (Double) dependency_data.get("custom_price");
+
+                    Double quantity = (Double) dependency.get("quantity");
+
+                    logger.info("Actions - Bom: Prices found: lakes: {}, custom: {}, quantity: {}, dependency: {}", lakes_price, custom_price, quantity, dependency_sku);
+
+                    if(quantity != null){
+                        if(custom_price != null && custom_price > 0){
+                            bulkSplitPrice += custom_price * quantity;
+                        } else if(lakes_price != null && lakes_price > 0){
+                            bulkSplitPrice += lakes_price * quantity;
+                        }
+
+                        logger.info("Actions - Bom: updating bulkSplitPrice: {} for parent: {}", bulkSplitPrice, sku);
+                    }
+                    
+                }
+            }
+        }
+
+        
+
         logger.info("Actions starting update on item: {}", item);
         DatabaseItem dbItem = new DatabaseItem(item);
         logger.info("Actions update resolved dbItem for sku: {}", dbItem.sku);
 
-        LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
-        logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
+        if(bulkSplitPrice > 0){
+            dbItem.setPricingFields(bulkSplitPrice, db);
+        }
 
-        dbItem.updateItem(lakesItem, db);
-        logger.info("Actions reset resolved updateItem on database for sku: {}", dbItem.sku);
+        Integer lakesid = dbItem.lakesid;
+        if(lakesid != null){
+            LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
+            logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
+
+            dbItem.updateItem(lakesItem, db);
+            logger.info("Actions reset resolved updateItem on database for sku: {}", dbItem.sku);
+        }
 
         if(dbItem.square_variation_id != null){
 

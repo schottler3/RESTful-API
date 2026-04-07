@@ -42,6 +42,7 @@ public class Databasing {
         "width", "length", "height", "weight",
         "package_width", "package_length", "package_height", "package_weight",
         "minimum_price", "calculated_price", "maximum_price", "lakes_price", "custom_price",
+        "bulk_split_price",
         // String columns
         "type", "mpn", "title", "description", "upc", "sku",
         "milwaukee_images", "lakes_images", "barcode_title"
@@ -207,9 +208,9 @@ public class Databasing {
                 upc, quantity, custom_quantity, sku, milwaukee_images, package_width,
                 package_length, package_height, package_weight, lakes_images,
                 minimum_price, calculated_price, maximum_price, lakes_price,
-                custom_price, fulfillment, square_variation_id, marketplaces
+                custom_price, fulfillment, square_variation_id, marketplaces, bulk_split_price
             ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
         """;
 
@@ -220,7 +221,8 @@ public class Databasing {
                 dbItem.quantity, dbItem.custom_quantity, dbItem.sku, dbItem.milwaukee_images,
                 dbItem.package_width, dbItem.package_length, dbItem.package_height, dbItem.package_weight,
                 dbItem.lakes_images, dbItem.minimum_price, dbItem.calculated_price, dbItem.maximum_price,
-                dbItem.lakes_price, dbItem.custom_price, dbItem.fulfillment, dbItem.square_variation_id, marketplaces
+                dbItem.lakes_price, dbItem.custom_price, dbItem.fulfillment, dbItem.square_variation_id, marketplaces, 
+                dbItem.split_bulk_price
             );
 
             logger.info("Databasing: createItem created with sku: {}", dbItem.sku);

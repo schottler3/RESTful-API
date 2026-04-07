@@ -45,6 +45,8 @@ public class DatabaseItem {
     public String square_variation_id;
     public String barcode_title;
     public String marketplaces;
+    public Double split_bulk_price;
+    public Boolean is_updated;
 
     private static final Logger logger = LoggerFactory.getLogger(BaseController.class);
     private static final Square square = new Square();
@@ -81,6 +83,8 @@ public class DatabaseItem {
         this.square_variation_id = (String) item.get("square_variation_id");
         this.barcode_title = (String) item.get("barcode_title"); 
         this.marketplaces = (String) item.get("marketplaces");
+        this.split_bulk_price = (Double) item.get("split_bulk_price");
+        this.is_updated = (Boolean) item.get("is_updated");
     }
 
     public DatabaseItem(LakesItem item) {
@@ -142,21 +146,9 @@ public class DatabaseItem {
             }
 
             if(this.custom_price == null || this.custom_price <= 0){
-                HashMap<String,Double> amazonPrices = Amazon.getPrices(lakesItem.price);
-
-                double minimum_price = amazonPrices.get("minimum_price");
-                double calculated_price = amazonPrices.get("middle_price");
-                double maximum_price = amazonPrices.get("maximum_price");
-
-                this.minimum_price = minimum_price;
-                this.calculated_price = calculated_price;
-                this.maximum_price = maximum_price;
-
-                logger.info("Data: Updating prices, minimum: {}, calculated: {}, maximum: {}", minimum_price, calculated_price, maximum_price);
-
-                db.patchItem(sku, "minimum_price", String.valueOf(minimum_price));
-                db.patchItem(sku, "calculated_price", String.valueOf(calculated_price));
-                db.patchItem(sku, "maximum_price", String.valueOf(maximum_price));
+                setPricingFields(lakesItem.price, db);
+            } else{
+                setPricingFields(this.custom_price, db);
             }
         }
 
@@ -164,25 +156,11 @@ public class DatabaseItem {
             logger.info("Price Updated: {} -> {}", this.lakes_price, lakesItem.price);
             this.lakes_price = lakesItem.price;
 
-            //minimum_price, middle_price, maximum_price
-            HashMap<String,Double> amazonPrices = Amazon.getPrices(this.lakes_price);
-
-            this.minimum_price = amazonPrices.get("minimum_price");
-            this.calculated_price = amazonPrices.get("middle_price");
-            this.maximum_price = amazonPrices.get("maximum_price");
-
             if (!db.patchItem(this.sku, "lakes_price", String.valueOf(this.lakes_price))){
                 logger.warn("Database Item UPDATE failure on attribute = lakes_price: sku = {}", this.sku);
             }
-            if (!db.patchItem(this.sku, "minimum_price", String.valueOf(this.minimum_price))){
-                logger.warn("Database Item UPDATE failure on attribute = minimum_price: sku = {}", this.sku);
-            }
-            if (!db.patchItem(this.sku, "calculated_price", String.valueOf(this.calculated_price))){
-                logger.warn("Database Item UPDATE failure on attribute = calculated_price: sku = {}", this.sku);
-            }
-            if (!db.patchItem(this.sku, "maximum_price", String.valueOf(this.maximum_price))){
-                logger.warn("Database Item UPDATE failure on attribute maximum_price: sku = {}", this.sku);
-            }
+
+            setPricingFields(this.lakes_price, db);
         }
 
         if (this.width == null) {
@@ -302,6 +280,25 @@ public class DatabaseItem {
             }
         }
     }
+
+    public void setPricingFields(Double price, Databasing db){
+        //minimum_price, middle_price, maximum_price
+        HashMap<String,Double> amazonPrices = Amazon.getPrices(price);
+
+        this.minimum_price = amazonPrices.get("minimum_price");
+        this.calculated_price = amazonPrices.get("middle_price");
+        this.maximum_price = amazonPrices.get("maximum_price");
+
+        if (!db.patchItem(this.sku, "minimum_price", String.valueOf(this.minimum_price))){
+            logger.warn("Database Item UPDATE failure on attribute = minimum_price: sku = {}", this.sku);
+        }
+        if (!db.patchItem(this.sku, "calculated_price", String.valueOf(this.calculated_price))){
+            logger.warn("Database Item UPDATE failure on attribute = calculated_price: sku = {}", this.sku);
+        }
+        if (!db.patchItem(this.sku, "maximum_price", String.valueOf(this.maximum_price))){
+            logger.warn("Database Item UPDATE failure on attribute maximum_price: sku = {}", this.sku);
+        }
+    }
     
     @Override
     public String toString() {
@@ -335,6 +332,8 @@ public class DatabaseItem {
                 "    square_variation_id=" + square_variation_id + "\n" +
                 "    barcode_title=" + barcode_title + "\n" +
                 "    marketplaces=" + marketplaces + "\n" +
+                "    split_bulk_price=" + split_bulk_price + "\n" +
+                "    is_updated=" + is_updated + "\n" +
                 '}';
     }
 
