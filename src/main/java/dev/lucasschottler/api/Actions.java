@@ -222,15 +222,12 @@ public class Actions {
                     logger.info("Actions - Bom: fetched now parsing prices for dependency: {}", dependency_sku);
 
                     Double lakes_price = ((Number) dependency_data.get("lakes_price")).doubleValue();
-                    Double custom_price = ((Number) dependency_data.get("custom_price")).doubleValue();
                     Double quantity = ((Number) dependency.get("quantity")).doubleValue();
 
-                    logger.info("Actions - Bom: Prices found: lakes: {}, custom: {}, quantity: {}, dependency: {}", lakes_price, custom_price, quantity, dependency_sku);
+                    logger.info("Actions - Bom: Prices found: lakes: {}, quantity: {}, dependency: {}", lakes_price, quantity, dependency_sku);
 
                     if(quantity != null){
-                        if(custom_price != null && custom_price > 0){
-                            bulkSplitPrice += custom_price * quantity;
-                        } else if(lakes_price != null && lakes_price > 0){
+                        if(lakes_price != null && lakes_price > 0){
                             bulkSplitPrice += lakes_price * quantity;
                         }
 
