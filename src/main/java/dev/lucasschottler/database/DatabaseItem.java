@@ -45,7 +45,6 @@ public class DatabaseItem {
     public String square_variation_id;
     public String barcode_title;
     public String marketplaces;
-    public Double split_bulk_price;
     public Boolean is_updated;
 
     private static final Logger logger = LoggerFactory.getLogger(BaseController.class);
@@ -83,7 +82,6 @@ public class DatabaseItem {
         this.square_variation_id = (String) item.get("square_variation_id");
         this.barcode_title = (String) item.get("barcode_title"); 
         this.marketplaces = (String) item.get("marketplaces");
-        this.split_bulk_price = (Double) item.get("split_bulk_price");
         this.is_updated = (Boolean) item.get("is_updated");
     }
 
@@ -110,175 +108,132 @@ public class DatabaseItem {
         this.maximum_price = amazonPrices.get("maximum_price");
     }
 
-    public void updateItem(LakesItem lakesItem, Databasing db){
+    public void updateItem(Databasing db) {
+        Integer squareQuantity = square.getInventoryCountByMpn(this.mpn);
 
-        if(this.lakesid == null || this.lakesid == -1){
-            this.lakesid = lakesItem.lakesid;
-        }
-       
-        if (this.quantity == null || this.quantity != lakesItem.quantity) {
-            logger.info("Quantity Updated: {} -> {}", this.quantity, lakesItem.quantity);
-            this.quantity = lakesItem.quantity;
-
-            if (!db.patchItem(this.sku, "quantity", String.valueOf(this.quantity))){
-                logger.warn("Database Item UPDATE failure on attribute = quantity: sku = {}", this.sku);
-            }
-        }
-
-        Integer squareQuantity = Integer.parseInt(square.getInventoryCountByMpn(this.mpn));
-
-        if(this.custom_quantity == null || (squareQuantity != null && squareQuantity != this.custom_quantity)){
+        if (squareQuantity != null && !squareQuantity.equals(this.custom_quantity)) {
             logger.info("Custom Quantity (Square) Updated: {} -> {}", this.custom_quantity, squareQuantity);
-
             this.custom_quantity = squareQuantity;
-
-            if (!db.patchItem(this.sku, "custom_quantity", String.valueOf(squareQuantity))){
+            if (!db.patchItem(this.sku, "custom_quantity", squareQuantity)) {
                 logger.warn("Database Item UPDATE failure on attribute = custom_quantity: sku = {}", this.sku);
             }
         }
 
-        if(this.lakes_price == null || this.lakes_price != lakesItem.price){
-
-            this.lakes_price = lakesItem.price;
-
-            if (db.patchItem(this.sku, "lakes_price", String.valueOf(this.lakes_price))){
-                logger.info("Database Item UPDATE success on attribute = lakes_price: sku = {}", this.sku);
-            }
-
-            if(this.custom_price == null || this.custom_price <= 0){
-                setPricingFields(lakesItem.price, db);
-            } else{
-                setPricingFields(this.custom_price, db);
+        if (this.fulfillment == null) {
+            this.fulfillment = DEFAULT_FULFILLMENT;
+            if (!db.patchItem(this.sku, "fulfillment", this.fulfillment)) {
+                logger.warn("Database Item UPDATE failure on attribute = fulfillment: sku = {}", this.sku);
             }
         }
 
-        if (this.custom_price == null || this.custom_price == 0 && (this.lakes_price == null || this.lakes_price != lakesItem.price)) {
+        if (this.square_variation_id == null) {
+            logger.info("Database Item Updating square_variation_id");
+            try {
+                this.square_variation_id = square.getVariationID(sku);
+                logger.info("Database Item Updated square_variation_id to {}", this.square_variation_id);
+                if (!db.patchItem(this.sku, "square_variation_id", this.square_variation_id)) {
+                    logger.warn("Database Item UPDATE failure on attribute = square_variation_id: sku = {}", this.sku);
+                }
+            } catch (Exception e) {
+                logger.error("Database update was unable to get the variation ID! {}", sku);
+            }
+        }
+    }
+
+    public void updateItemUsingLakes(LakesItem lakesItem, Databasing db) {
+
+        if (this.lakesid == null || this.lakesid == -1) {
+            this.lakesid = lakesItem.lakesid;
+        }
+
+        if (this.quantity == null || !this.quantity.equals(lakesItem.quantity)) {
+            logger.info("Quantity Updated: {} -> {}", this.quantity, lakesItem.quantity);
+            this.quantity = lakesItem.quantity;
+            if (!db.patchItem(this.sku, "quantity", this.quantity)) {
+                logger.warn("Database Item UPDATE failure on attribute = quantity: sku = {}", this.sku);
+            }
+        }
+
+        if (this.lakes_price == null || !this.lakes_price.equals(lakesItem.price)) {
             logger.info("Price Updated: {} -> {}", this.lakes_price, lakesItem.price);
             this.lakes_price = lakesItem.price;
-
-            if (!db.patchItem(this.sku, "lakes_price", String.valueOf(this.lakes_price))){
+            if (!db.patchItem(this.sku, "lakes_price", this.lakes_price)) {
                 logger.warn("Database Item UPDATE failure on attribute = lakes_price: sku = {}", this.sku);
             }
-
-            setPricingFields(this.lakes_price, db);
+            setPricingFields(this.custom_price != null && this.custom_price > 0 ? this.custom_price : this.lakes_price, db);
         }
 
         if (this.width == null) {
-            logger.info("Width Updated: {} -> {}", this.width, lakesItem.width);
             this.width = lakesItem.width;
-
-            if (!db.patchItem(this.sku, "width", String.valueOf(this.width))){
+            if (!db.patchItem(this.sku, "width", this.width)) {
                 logger.warn("Database Item UPDATE failure on attribute = width: sku = {}", this.sku);
             }
         }
 
         if (this.length == null) {
-            logger.info("Length Updated: {} -> {}", this.length, lakesItem.length);
             this.length = lakesItem.length;
-
-            if (!db.patchItem(this.sku, "length", String.valueOf(this.length))){
+            if (!db.patchItem(this.sku, "length", this.length)) {
                 logger.warn("Database Item UPDATE failure on attribute = length: sku = {}", this.sku);
             }
         }
 
         if (this.height == null) {
-            logger.info("Height Updated: {} -> {}", this.height, lakesItem.height);
             this.height = lakesItem.height;
-
-            if (!db.patchItem(this.sku, "height", String.valueOf(this.height))){
+            if (!db.patchItem(this.sku, "height", this.height)) {
                 logger.warn("Database Item UPDATE failure on attribute = height: sku = {}", this.sku);
             }
         }
 
         if (this.weight == null) {
-            logger.info("Weight Updated: {} -> {}", this.weight, lakesItem.weight);
             this.weight = lakesItem.weight;
-
-            if (!db.patchItem(this.sku, "weight", String.valueOf(this.weight))){
+            if (!db.patchItem(this.sku, "weight", this.weight)) {
                 logger.warn("Database Item UPDATE failure on attribute = weight: sku = {}", this.sku);
             }
         }
 
         if (this.type == null) {
-            logger.info("Type Updated: {} -> {}", this.type, lakesItem.type);
             this.type = lakesItem.type;
-
-            if (!db.patchItem(this.sku, "type", String.valueOf(this.type))){
+            if (!db.patchItem(this.sku, "type", this.type)) {
                 logger.warn("Database Item UPDATE failure on attribute = type: sku = {}", this.sku);
             }
         }
 
         if (this.mpn == null) {
-            logger.info("MPN Updated: {} -> {}", this.mpn, lakesItem.mpn);
             this.mpn = lakesItem.mpn;
-
-            if (!db.patchItem(this.sku, "mpn", String.valueOf(this.mpn))){
+            if (!db.patchItem(this.sku, "mpn", this.mpn)) {
                 logger.warn("Database Item UPDATE failure on attribute = mpn: sku = {}", this.sku);
             }
         }
 
         if (this.title == null) {
-            logger.info("Title Updated: {} -> {}", this.title, lakesItem.title);
             this.title = lakesItem.title;
-
-            if (!db.patchItem(this.sku, "title", String.valueOf(this.title))){
+            if (!db.patchItem(this.sku, "title", this.title)) {
                 logger.warn("Database Item UPDATE failure on attribute = title: sku = {}", this.sku);
             }
         }
 
         if (this.description == null) {
-            logger.info("Description Updated: {} -> {}", this.description, lakesItem.description);
             this.description = lakesItem.description;
-
-            if (!db.patchItem(this.sku, "description", String.valueOf(this.description))){
+            if (!db.patchItem(this.sku, "description", this.description)) {
                 logger.warn("Database Item UPDATE failure on attribute = description: sku = {}", this.sku);
             }
         }
 
         if (this.upc == null) {
-            logger.info("UPC Updated: {} -> {}", this.upc, lakesItem.upc);
             this.upc = lakesItem.upc;
-
-            if (!db.patchItem(this.sku, "upc", String.valueOf(this.upc))){
+            if (!db.patchItem(this.sku, "upc", this.upc)) {
                 logger.warn("Database Item UPDATE failure on attribute = upc: sku = {}", this.sku);
             }
         }
 
-        if (this.sku == null) {
-            logger.info("SKU Updated: {} -> {}", this.sku, lakesItem.sku);
-            this.sku = lakesItem.sku;
-
-            if (!db.patchItem(this.sku, "sku", String.valueOf(this.sku))){
-                logger.warn("Database Item UPDATE failure on attribute = sku: sku = {}", this.sku);
-            }
-        }
-
-        if (this.lakes_images == null){
-            logger.info("Lakes Image Updated: {} -> {}", this.lakes_images, lakesItem.imageLink);
+        if (this.lakes_images == null) {
             this.lakes_images = lakesItem.imageLink;
-
-            if (!db.patchItem(this.sku, "lakes_images", String.valueOf(this.lakes_images))){
+            if (!db.patchItem(this.sku, "lakes_images", this.lakes_images)) {
                 logger.warn("Database Item UPDATE failure on attribute = lakes_images: sku = {}", this.sku);
             }
         }
 
-        if (this.fulfillment == null){
-            this.fulfillment = DEFAULT_FULFILLMENT;
-
-            if (!db.patchItem(this.sku, "fulfillment", String.valueOf(this.fulfillment))){
-                logger.warn("Database Item UPDATE failure on attribute = fulfillment: sku = {}", this.sku);
-            }
-        }
-
-        if(this.square_variation_id == null){
-            logger.info("Database Item Updating square_variation_id");
-            try {
-                this.square_variation_id = square.getVariationID(sku);
-                logger.info("Database Item Updated square_variation_id to {}", this.square_variation_id);
-            } catch (Exception e){
-                logger.error("Database update was unable to get the variation ID! {}", sku);
-            }
-        }
+        updateItem(db);
     }
 
     public void setPricingFields(Double price, Databasing db){
@@ -332,7 +287,6 @@ public class DatabaseItem {
                 "    square_variation_id=" + square_variation_id + "\n" +
                 "    barcode_title=" + barcode_title + "\n" +
                 "    marketplaces=" + marketplaces + "\n" +
-                "    split_bulk_price=" + split_bulk_price + "\n" +
                 "    is_updated=" + is_updated + "\n" +
                 '}';
     }

@@ -345,6 +345,8 @@ public class Ebay {
 
         price.put("currency", "USD");
 
+        logger.info("Ebay: Using price: {}", dbItem.calculated_price);
+
         price.put("value", dbItem.calculated_price);
 
         final String offer_url = API + "offer/" +  ebayService.getOfferId(dbItem.sku.trim().replace(" ", "%20"), TOKEN);

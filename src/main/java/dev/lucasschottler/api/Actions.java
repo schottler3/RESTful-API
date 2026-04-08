@@ -9,6 +9,8 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cglib.beans.BulkBean;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.stereotype.Service;
 
 import dev.lucasschottler.api.square.Square;
@@ -59,68 +61,24 @@ public class Actions {
         return true;
     }
 
-    public boolean updateItem(String sku){
+    public DatabaseItem updateItem(String sku){
 
+        logger.info("Actions: Getting item data for updateItem... {}", sku);
         Map<String, Object> item = db.getData(sku);
+        logger.info("Actions: Item data retrieved for {}", sku);
 
         if(item == null){
             logger.warn("Actions failed to update sku: {} due to no results", sku);
-            return false;
+            return null;
         }
 
-        logger.info("Actions: Testing for Bom relations...");
-        List<Map<String,Object>> bom = db.getBom(sku);
-
-        logger.info("Actions - Bom: Got the bom for sku: {}, BOM: {}", sku, bom.toString());
-
-        Double bulkSplitPrice = 0.0;
-
-        if(bom != null && bom.size() > 0){
-
-            logger.info("Actions: Found bom relations!");
-
-            for (Map<String,Object> dependency : bom){
-                String dependency_sku = (String) dependency.get("sku");
-                if(dependency_sku != null){
-
-                    logger.info("Actions - Bom: updating item for dependency: {}", dependency_sku);
-
-                    updateItem(dependency_sku);
-
-                    logger.info("Actions - Bom: updated and now fetching data again for dependency: {}", dependency_sku);
-
-                    Map<String,Object> dependency_data = db.getData(dependency_sku);
-
-                    logger.info("Actions - Bom: fetched now parsing prices for dependency: {}", dependency_sku);
-
-                    Double lakes_price = (Double) dependency_data.get("lakes_price");
-                    Double custom_price = (Double) dependency_data.get("custom_price");
-
-                    Double quantity = (Double) dependency.get("quantity");
-
-                    logger.info("Actions - Bom: Prices found: lakes: {}, custom: {}, quantity: {}, dependency: {}", lakes_price, custom_price, quantity, dependency_sku);
-
-                    if(quantity != null){
-                        if(custom_price != null && custom_price > 0){
-                            bulkSplitPrice += custom_price * quantity;
-                        } else if(lakes_price != null && lakes_price > 0){
-                            bulkSplitPrice += lakes_price * quantity;
-                        }
-
-                        logger.info("Actions - Bom: updating bulkSplitPrice: {} for parent: {}", bulkSplitPrice, sku);
-                    }
-                    
-                }
-            }
-        }
-
-        
+        Double bulkSplitPrice = getBulkSplitPrice(sku);
 
         logger.info("Actions starting update on item: {}", item);
         DatabaseItem dbItem = new DatabaseItem(item);
         logger.info("Actions update resolved dbItem for sku: {}", dbItem.sku);
 
-        if(bulkSplitPrice > 0){
+        if(bulkSplitPrice != null && bulkSplitPrice > 0){
             dbItem.setPricingFields(bulkSplitPrice, db);
         }
 
@@ -129,46 +87,32 @@ public class Actions {
             LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
             logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
 
-            dbItem.updateItem(lakesItem, db);
-            logger.info("Actions reset resolved updateItem on database for sku: {}", dbItem.sku);
+            dbItem.updateItemUsingLakes(lakesItem, db);
+            logger.info("Actions resolved updateItemUsingLakes on database for sku: {}", dbItem.sku);
         }
 
         if(dbItem.square_variation_id != null){
 
-            String square_quantity = square.getInventoryCountByVariationID(dbItem.square_variation_id);
+            Integer square_quantity = square.getInventoryCountByVariationID(dbItem.square_variation_id);
 
             logger.info("Actions: Square quantity found: {}", square_quantity);
 
             if(square_quantity != null){
-                int quantity = Integer.parseInt(square.getInventoryCountByVariationID(dbItem.square_variation_id));
+                int quantity = square.getInventoryCountByVariationID(dbItem.square_variation_id);
                 db.updateCustomQuantity(dbItem.sku, quantity);
             }
         }
 
-        return true;
+        return dbItem;
     }
 
     public boolean updateAndPushItem(String sku){
 
-        Map<String, Object> item = db.getData(sku);
+        logger.info("Actions: calling updateItem... {}", sku);
+        DatabaseItem dbItem = updateItem(sku);
+        logger.info("Actions: success! Got dbItem {}", sku);
 
-        if(item == null){
-            logger.warn("Actions failed to update sku: {} due to no results", sku);
-            return false;
-        }
-
-        logger.info("Actions starting update on item: {}", item);
-        DatabaseItem dbItem = new DatabaseItem(item);
-        logger.info("Actions update resolved dbItem for sku: {}", dbItem.sku);
-
-        if(dbItem.lakesid != null){
-            LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
-            logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
-
-            dbItem.updateItem(lakesItem, db);
-            logger.info("Actions update resolved updateItem on database for sku: {}", dbItem.sku);
-        }
-        //logger.info(dbItem.toString());
+        logger.info("Actions: Recieved object: {}", dbItem.toString());
 
         if(dbItem.marketplaces.contains("amazon")){
             logger.info("Actions update pushing to amazon, sku: {}", dbItem.sku);
@@ -186,9 +130,6 @@ public class Actions {
             logger.info("Actions update FINISHED offer to ebay, sku: {}", dbItem.sku);
         }
         
-
-        
-
         return true;
     }
 
@@ -235,7 +176,7 @@ public class Actions {
 
             LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
 
-            dbItem.updateItem(lakesItem, db);
+            dbItem.updateItemUsingLakes(lakesItem, db);
 
             amazon.updateItem(dbItem);
 
@@ -245,6 +186,66 @@ public class Actions {
         } catch (Exception e) {
             logger.error("Error processing item: {}", item, e);
         }
+    }
+
+    public Double getBulkSplitPrice(String sku){
+        logger.info("Actions: Testing for Bom relations...");
+        List<Map<String,Object>> bom = db.getBom(sku);
+
+        logger.info("Actions - Bom: Got the bom for sku: {}, BOM: {}", sku, bom);
+
+        Double bulkSplitPrice = 0.0;
+
+        if(bom != null && !bom.isEmpty()){
+
+            logger.info("Actions: Found bom relations!");
+
+            for (Map<String,Object> dependency : bom){
+                String dependency_sku = (String) dependency.get("child_sku");
+                if(dependency_sku != null){
+
+                    logger.info("Actions - Bom: updating item for dependency: {}", dependency_sku);
+
+                    updateItem(dependency_sku);
+
+                    logger.info("Actions - Bom: updated and now fetching data again for dependency: {}", dependency_sku);
+
+                    Map<String, Object> dependency_data;
+
+                    try {
+                        dependency_data = db.getData(dependency_sku);
+                    } catch (EmptyResultDataAccessException e) {
+                        logger.warn("Actions - Bom: dependency not found in database: {}", dependency_sku);
+                        continue;
+                    }
+
+                    logger.info("Actions - Bom: fetched now parsing prices for dependency: {}", dependency_sku);
+
+                    Double lakes_price = ((Number) dependency_data.get("lakes_price")).doubleValue();
+                    Double custom_price = ((Number) dependency_data.get("custom_price")).doubleValue();
+                    Double quantity = ((Number) dependency.get("quantity")).doubleValue();
+
+                    logger.info("Actions - Bom: Prices found: lakes: {}, custom: {}, quantity: {}, dependency: {}", lakes_price, custom_price, quantity, dependency_sku);
+
+                    if(quantity != null){
+                        if(custom_price != null && custom_price > 0){
+                            bulkSplitPrice += custom_price * quantity;
+                        } else if(lakes_price != null && lakes_price > 0){
+                            bulkSplitPrice += lakes_price * quantity;
+                        }
+
+                        logger.info("Actions - Bom: updating bulkSplitPrice: {} for parent: {}", bulkSplitPrice, sku);
+                    }
+                    
+                }
+            }
+        } else {
+            return null;
+        }
+
+        logger.info("Actions: final bulkSplitPrice: {}", bulkSplitPrice);
+
+        return bulkSplitPrice;
     }
 
 }

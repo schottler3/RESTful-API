@@ -21,7 +21,7 @@ public class Square {
     private static final Logger logger = LoggerFactory.getLogger(Square.class);
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public String getInventoryCountByMpn(String mpn) {
+    public Integer getInventoryCountByMpn(String mpn) {
 
         String variationId;
 
@@ -49,7 +49,7 @@ public class Square {
         return extractQuantityFromInventoryObject(inventoryObject, mpn);
     }
 
-    public String getInventoryCountByVariationID(String variationId) {
+    public Integer getInventoryCountByVariationID(String variationId) {
 
         JsonNode inventoryObject;
 
@@ -63,7 +63,7 @@ public class Square {
         return extractQuantityFromInventoryObject(inventoryObject, variationId);
     }
 
-    private String extractQuantityFromInventoryObject(JsonNode inventoryObject, String identifier) {
+    private Integer extractQuantityFromInventoryObject(JsonNode inventoryObject, String identifier) {
         if (inventoryObject == null) {
             logger.info("Square couldn't get the inventory object for: {}", identifier);
             return null;
@@ -76,7 +76,7 @@ public class Square {
             return null;
         }
 
-        String inventoryCount = counts.get(0).path("quantity").asText();
+        Integer inventoryCount = Integer.parseInt(counts.get(0).path("quantity").asText());
 
         logger.info("Square found quantity {} for {}", inventoryCount, identifier);
 

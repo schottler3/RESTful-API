@@ -282,14 +282,18 @@ public class DataController {
 
     @PostMapping("/update/{sku}")
     public ResponseEntity<String> updateAndPushItem(@PathVariable String sku) {
-        actions.updateAndPushItem(sku);
-        return ResponseEntity.ok("Item updated successfully");
+        if (actions.updateAndPushItem(sku)){
+            return ResponseEntity.ok("Item updated successfully " + sku);
+        } else {
+            return ResponseEntity.status(400).body("Failed to update item: " + sku);
+        }
+        
     }
 
     @GetMapping("/square/{mpn}")
     public ResponseEntity<String> getInventoryCountBySku(@PathVariable String mpn){
         try{        
-            return ResponseEntity.ok(square.getInventoryCountByMpn(mpn));
+            return ResponseEntity.ok(square.getInventoryCountByMpn(mpn).toString());
         } catch (Exception e){
             return ResponseEntity.status(500).body("status: failed to get mpn");
         }

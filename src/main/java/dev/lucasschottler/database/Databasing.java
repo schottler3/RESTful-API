@@ -159,37 +159,39 @@ public class Databasing {
         return results.isEmpty() ? new ArrayList<>() : results;
     }
 
-    public boolean patchItem(String sku, String attribute, String data) {
-    
+    public boolean patchItem(String sku, String attribute, Object data) {
+
         if (!allowedColumns.contains(attribute)) {
             logger.warn("Invalid attribute: {}", attribute);
             return false;
         }
-        
+
         String sql = "UPDATE superior SET " + attribute + " = ?, updated_at = CURRENT_TIMESTAMP WHERE sku = ?";
-        logger.info("DEBUG - SQL: {}", sql);
-        
+        logger.debug("SQL: {}", sql);
+
         try {
             int rowsAffected;
 
-            if (data == null || data.equalsIgnoreCase("null") || data.trim().isEmpty()) {
+            if (data == null) {
                 int sqlType = Types.VARCHAR;
                 if (integerColumns.contains(attribute)) sqlType = Types.INTEGER;
                 else if (doubleColumns.contains(attribute)) sqlType = Types.DOUBLE;
+                rowsAffected = jdbcTemplate.update(sql, new Object[]{null, sku}, new int[]{sqlType, Types.VARCHAR});
 
-                rowsAffected = jdbcTemplate.update(sql, new Object[]{null, sku}, new int[]{sqlType, Types.INTEGER});
             } else if (integerColumns.contains(attribute)) {
-                rowsAffected = jdbcTemplate.update(sql, Integer.parseInt(data), sku);
+                int value = (data instanceof Integer) ? (Integer) data : Integer.parseInt(data.toString());
+                rowsAffected = jdbcTemplate.update(sql, value, sku);
+
             } else if (doubleColumns.contains(attribute)) {
-                rowsAffected = jdbcTemplate.update(sql, Double.parseDouble(data), sku);
+                double value = (data instanceof Double) ? (Double) data : Double.parseDouble(data.toString());
+                rowsAffected = jdbcTemplate.update(sql, value, sku);
+
             } else {
-                rowsAffected = jdbcTemplate.update(sql, data, sku);
+                rowsAffected = jdbcTemplate.update(sql, data.toString(), sku);
             }
 
-            logger.info("Databasing patchItem rowsAffected: {}", rowsAffected);
-            
             return rowsAffected > 0;
-            
+
         } catch (NumberFormatException e) {
             logger.error("Invalid number format for attribute {}: {}", attribute, data);
             return false;
@@ -210,7 +212,7 @@ public class Databasing {
                 minimum_price, calculated_price, maximum_price, lakes_price,
                 custom_price, fulfillment, square_variation_id, marketplaces, bulk_split_price
             ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )
         """;
 
@@ -221,8 +223,7 @@ public class Databasing {
                 dbItem.quantity, dbItem.custom_quantity, dbItem.sku, dbItem.milwaukee_images,
                 dbItem.package_width, dbItem.package_length, dbItem.package_height, dbItem.package_weight,
                 dbItem.lakes_images, dbItem.minimum_price, dbItem.calculated_price, dbItem.maximum_price,
-                dbItem.lakes_price, dbItem.custom_price, dbItem.fulfillment, dbItem.square_variation_id, marketplaces, 
-                dbItem.split_bulk_price
+                dbItem.lakes_price, dbItem.custom_price, dbItem.fulfillment, dbItem.square_variation_id, marketplaces
             );
 
             logger.info("Databasing: createItem created with sku: {}", dbItem.sku);
