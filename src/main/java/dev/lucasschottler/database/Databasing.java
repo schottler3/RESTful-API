@@ -417,4 +417,17 @@ public class Databasing {
         return jdbcTemplate.queryForList(sql, Integer.class, type);
 
     }
+
+    public List<Map<String,Object>> checkReportForExistingSku(String sku) {
+
+        if (sku == null || sku.isBlank()) {
+            return List.of();
+        }
+
+        String safeSku = sku.replace("%", "\\%").replace("_", "\\_");
+        String sql = "SELECT * FROM report WHERE sku ILIKE ?";
+
+        return jdbcTemplate.queryForList(sql, safeSku);
+    }
+
 }

@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -110,4 +111,19 @@ public class ReportController {
         }
     }
 
+    @GetMapping("/check/{sku}")
+    public ResponseEntity<List<Map<String,Object>>> checkForExistingReportSkus(@PathVariable String sku){
+
+        logger.info("Report: Getting potentially existing skus for a given sku: {}", sku);
+
+        List<Map<String,Object>> potentialMatches = db.checkReportForExistingSku(sku);
+
+        if (potentialMatches == null || potentialMatches.isEmpty()) {
+            logger.info("Report: Generated list for potentially existing skus for a given sku: {}, but it was empty!", sku);
+            return ResponseEntity.noContent().build();
+        } else {
+            logger.info("Report: Generated list for potentially existing skus for a given sku: {}", sku);
+            return ResponseEntity.ok(potentialMatches);
+        }
+    }
 }
