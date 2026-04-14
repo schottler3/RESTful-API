@@ -88,6 +88,22 @@ public class Actions {
 
             dbItem.updateItemUsingLakes(lakesItem, db);
             logger.info("Actions resolved updateItemUsingLakes on database for sku: {}", dbItem.sku);
+        } else {
+            List<Map<String,Object>> bom = db.getBom(dbItem.sku);
+
+            if(bom.size() > 0){
+                String child_sku = (String) bom.get(0).get("child_sku");
+
+                if(child_sku != null){
+                    DatabaseItem dbChildItem = new DatabaseItem(db.getData(child_sku));
+
+                    LakesItem lakesChildItem = lakes.getLakesItem(dbChildItem.lakesid);
+                    logger.info("Actions update resolved lakesItem for sku: {} using dependency lakesid", lakesChildItem.sku);
+
+                    dbItem.updateItemUsingLakes(lakesChildItem, db);
+                    logger.info("Actions resolved updateItemUsingLakes on database for sku: {} using dependency lakesid", dbItem.sku);
+                }
+            }
         }
 
         if(dbItem.square_variation_id != null){
@@ -112,6 +128,11 @@ public class Actions {
         logger.info("Actions: success! Got dbItem {}", sku);
 
         logger.info("Actions: Recieved object: {}", dbItem.toString());
+
+        if(dbItem.marketplaces == null || dbItem.marketplaces.equals("")){
+            logger.info("Actions update and push found no marketplaces!, sku: {}", dbItem.sku);
+            return true;
+        }
 
         if(dbItem.marketplaces.contains("amazon")){
             logger.info("Actions update pushing to amazon, sku: {}", dbItem.sku);

@@ -174,8 +174,29 @@ public class DataController {
     }
 
     @GetMapping("/item/{sku}")
-    public Map<String, Object> getItem(@PathVariable String sku) {
-        return db.getData(sku);
+    public ResponseEntity<Map<String, Object>> getItem(@PathVariable String sku) {
+        logger.info("Data: Getting item data for sku: {}", sku);
+
+        try {
+            Map<String, Object> item = db.getData(sku);
+
+            if (item == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            logger.info("Data: item: {}", item);
+
+            return ResponseEntity.ok(item);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest()
+                .body(Map.of("error", e.getMessage()));
+
+        } catch (Exception e) {
+            logger.error("Unexpected error fetching item {}: {}", sku, e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                .body(Map.of("error", "Internal server error"));
+        }
     }
 
     @PutMapping("/reset/{sku}")

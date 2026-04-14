@@ -55,12 +55,8 @@ public class Databasing {
     }
     
     public java.util.Map<String, Object> getData(String sku) {
-        if (sku == null || sku.trim().isEmpty()) {
-            String sql = "SELECT * FROM superior ORDER BY sku ASC";
-            return jdbcTemplate.queryForMap(sql);
-        }
-        String sql = "SELECT * FROM superior WHERE sku ILIKE ? ORDER BY sku ASC";
-        return jdbcTemplate.queryForMap(sql, "%" + sku + "%");
+        String sql = "SELECT * FROM superior WHERE sku = ? LIMIT 1";
+        return jdbcTemplate.queryForMap(sql, sku);
     }
 
     public java.util.Map<String, Object> getData(int lakesid) {

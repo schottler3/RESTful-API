@@ -140,10 +140,6 @@ public class DatabaseItem {
 
     public void updateItemUsingLakes(LakesItem lakesItem, Databasing db) {
 
-        if (this.lakesid == null || this.lakesid == -1) {
-            this.lakesid = lakesItem.lakesid;
-        }
-
         if (this.quantity == null || !this.quantity.equals(lakesItem.quantity)) {
             logger.info("Quantity Updated: {} -> {}", this.quantity, lakesItem.quantity);
             this.quantity = lakesItem.quantity;
