@@ -426,4 +426,9 @@ public class Databasing {
         return jdbcTemplate.queryForList(sql, safeSku);
     }
 
+    public boolean updateLastSuccess(String sku){
+        String sql = "UPDATE superior SET timestamps = array_append(timestamps, NOW()) WHERE sku = ?;";
+        return jdbcTemplate.update(sql, sku) > 0;
+    }
+
 }

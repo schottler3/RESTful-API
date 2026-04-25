@@ -45,6 +45,7 @@ public class DatabaseItem {
     public String square_variation_id;
     public String barcode_title;
     public String marketplaces;
+    public Timestamp[] timestamps;
 
     private static final Logger logger = LoggerFactory.getLogger(BaseController.class);
     private static final Square square = new Square();
@@ -81,6 +82,7 @@ public class DatabaseItem {
         this.square_variation_id = (String) item.get("square_variation_id");
         this.barcode_title = (String) item.get("barcode_title"); 
         this.marketplaces = (String) item.get("marketplaces");
+        this.timestamps = (Timestamp[]) item.get("timestamps");
     }
 
     public DatabaseItem(LakesItem item) {
@@ -281,6 +283,7 @@ public class DatabaseItem {
                 "    square_variation_id=" + square_variation_id + "\n" +
                 "    barcode_title=" + barcode_title + "\n" +
                 "    marketplaces=" + marketplaces + "\n" +
+                "    timestamps=" + timestamps + "\n" +
                 '}';
     }
 

@@ -24,6 +24,7 @@ import dev.lucasschottler.database.DatabaseItem;
 import dev.lucasschottler.database.Databasing;
 import dev.lucasschottler.update.Amazon;
 import dev.lucasschottler.api.StateService;
+import dev.lucasschottler.api.Webhook;
 import dev.lucasschottler.api.square.Square;
 
 @RestController
@@ -248,6 +249,16 @@ public class DataController {
     public ResponseEntity<String> isUpdating() {
         String state = stateService.getState(IS_UPDATING_KEY);
         logger.info("Current State: {}", state);
+
+        try {
+            if(state != null) {
+                Webhook.sendMessage(String.format("Current State: %s", state));
+            } else {
+                Webhook.sendMessage(String.format("Current State is Null!"));
+            }
+        } catch (Exception ex) {
+            logger.error("Failed to send webhook message: {}", ex.getMessage());
+        }
         
         // Initialize state if null
         if (state == null) {

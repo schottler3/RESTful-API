@@ -12,6 +12,7 @@ import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import dev.lucasschottler.api.Webhook;
 import dev.lucasschottler.database.DatabaseItem;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -386,6 +387,13 @@ public class Ebay {
                 logger.info("Ebay Data PUT FINISHED: sku: {}", sku);
             } catch (Exception e) {
                 logger.error("Ebay Data PUT EXCEPTION: sku: {}, attempt: {}, error: {}", sku, i + 1, e.getMessage());
+
+                try {
+                        Webhook.sendMessage(String.format("Ebay Data PUT EXCEPTION: sku: %s, attempt: %d, error: %s", sku, i + 1, e.getMessage()));
+                    } catch (Exception ex) {
+                        logger.error("Failed to send webhook message: {}", ex.getMessage());
+                    }
+
                 continue;
             }
 
@@ -393,8 +401,13 @@ public class Ebay {
                 logger.info("Ebay Data PUT SUCCESS: sku: {}", sku);
                 return true;
             } else {
-                logger.error("Ebay Data PUT ERROR: sku: {}, status: {}, attempt: {}, body: {}", 
-                    sku, response.statusCode(), i + 1, response.body());
+                logger.error("Ebay Data PUT ERROR: sku: {}, status: {}, attempt: {}, body: {}", sku, response.statusCode(), i + 1, response.body());
+
+                    try {
+                        Webhook.sendMessage(String.format("Ebay Data PUT ERROR: sku: %s, status: %d, attempt: %d, body: %s", sku, response.statusCode(), i + 1, response.body()));
+                    } catch (Exception e) {
+                        logger.error("Failed to send webhook message: {}", e.getMessage());
+                    }
                 
                 if(response.statusCode() == 401){
                     ebayService.globalRefreshToken = null;
@@ -404,6 +417,13 @@ public class Ebay {
                 // Don't retry on client errors (4xx)
                 if (response.statusCode() >= 400 && response.statusCode() < 500) {
                     logger.error("Client error - not retrying: sku: {}, status: {}", sku, response.statusCode());
+
+                    try {
+                        Webhook.sendMessage(String.format("Client error - not retrying: sku: %s, status: %d", sku, response.statusCode()));
+                    } catch (Exception e) {
+                        logger.error("Failed to send webhook message: {}", e.getMessage());
+                    }
+
                     return false;
                 }
                 
@@ -413,6 +433,13 @@ public class Ebay {
                 } catch (InterruptedException ie) {
                     logger.error("Sleep interrupted: sku: {}, attempt: {}", sku, i + 1);
                     Thread.currentThread().interrupt();
+
+                    try {
+                        Webhook.sendMessage(response.body());
+                    } catch (Exception e) {
+                        logger.error("Failed to send webhook message: {}", e.getMessage());
+                    }
+
                     return false;
                 }
             }

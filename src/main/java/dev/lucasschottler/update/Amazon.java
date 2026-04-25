@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import dev.lucasschottler.api.Webhook;
 import dev.lucasschottler.database.DatabaseItem;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -120,6 +121,13 @@ public class Amazon {
         
         if(accessToken == null || accessToken.equals("")) {
             logger.warn("Amazon: accessToken Failed, SKU: {}", dbItem.sku);
+
+            try {
+                Webhook.sendMessage(String.format("Amazon: accessToken Failed, SKU: %s", dbItem.sku));
+            } catch (Exception ex) {
+                logger.error("Failed to send webhook message: {}", ex.getMessage());
+            }
+
             return false;
         }
 
@@ -142,6 +150,13 @@ public class Amazon {
 
         if (get_response == null) {
             logger.error("Amazon updateItem got null response, sku: {}", dbItem.sku);
+
+            try {
+                Webhook.sendMessage(String.format("Amazon updateItem got null response, sku: %s", dbItem.sku));
+            } catch (Exception ex) {
+                logger.error("Failed to send webhook message: {}", ex.getMessage());
+            }
+
             return false;
         }
 
@@ -149,6 +164,13 @@ public class Amazon {
 
         if(get_response.statusCode() == 404){
             logger.warn("Amazon item not found or doesn't exist. sku: {}", dbItem.sku);
+
+            try {
+                Webhook.sendMessage(String.format("Amazon item not found or doesn't exist. sku: %s", dbItem.sku));
+            } catch (Exception ex) {
+                logger.error("Failed to send webhook message: {}", ex.getMessage());
+            }
+
             return false;
         }
 
@@ -158,6 +180,13 @@ public class Amazon {
             itemData = (ObjectNode) mapper.readTree(get_response.body());
         } catch (Exception e){
             logger.error("Amazon JSON mapper error on get_response, sku: {}", dbItem.sku);
+
+            try {
+                Webhook.sendMessage(String.format("Amazon JSON mapper error on get_response, sku: %s", dbItem.sku));
+            } catch (Exception ex) {
+                logger.error("Failed to send webhook message: {}", ex.getMessage());
+            }
+
             return false;
         }
 
@@ -175,6 +204,13 @@ public class Amazon {
             currentAttributes = (ObjectNode) itemData.get("attributes");
         } else {
             logger.error("Amazon itemData missing 'attributes' field, sku: {}", dbItem.sku);
+
+            try {
+                Webhook.sendMessage(String.format("Amazon itemData missing 'attributes' field, sku: %s", dbItem.sku));
+            } catch (Exception ex) {
+                logger.error("Failed to send webhook message: {}", ex.getMessage());
+            }
+
             return false;
         }
 
@@ -317,8 +353,14 @@ public class Amazon {
         HttpResponse<String> patch_response = doRequest(patchRequest, dbItem.sku);
 
         if(patch_response == null || (patch_response.statusCode() != 200 && patch_response.statusCode() != 204)) {
-            logger.error("Amazon PATCH failed, sku: {}, status: {}", dbItem.sku, 
-                patch_response != null ? patch_response.statusCode() : "null");
+            logger.error("Amazon PATCH failed, sku: {}, status: {}", dbItem.sku, patch_response != null ? patch_response.statusCode() : "null");
+
+            try {
+                Webhook.sendMessage(String.format("Amazon PATCH failed, sku: %s, status: %d", dbItem.sku, patch_response != null ? patch_response.statusCode() : "null"));
+            } catch (Exception ex) {
+                logger.error("Failed to send webhook message: {}", ex.getMessage());
+            }
+
             return false;
         }
 
@@ -371,19 +413,39 @@ public class Amazon {
                 logger.info("Amazon Request FINISHED: sku: {}", sku);
             } catch (Exception e) {
                 logger.error("Amazon Request EXCEPTION: sku: {}, attempt: {}, error: {}", sku, i + 1, e.getMessage());
+
+                try {
+                    Webhook.sendMessage(String.format("Amazon Request EXCEPTION: sku: %s, attempt: %d, error: %s", sku, i + 1, e.getMessage()));
+                } catch (Exception ex) {
+                    logger.error("Failed to send webhook message: {}", ex.getMessage());
+                }
+
                 continue;
             }
 
             if (response.statusCode() == 204 || response.statusCode() == 200) {
                 logger.info("Amazon Request SUCCESS: sku: {}", sku);
+
                 return response;
             } else {
-                logger.error("Amazon Request ERROR: sku: {}, status: {}, attempt: {}, body: {}", 
-                    sku, response.statusCode(), i + 1, response.body());
-                
+                logger.error("Amazon Request ERROR: sku: {}, status: {}, attempt: {}, body: {}", sku, response.statusCode(), i + 1, response.body());
+
+                try {
+                    Webhook.sendMessage(String.format("Amazon Request ERROR: sku: %s, status: %d, attempt: %d, body: %s", sku, response.statusCode(), i + 1, response.body()));
+                } catch (Exception ex) {
+                    logger.error("Failed to send webhook message: {}", ex.getMessage());
+                }
+
                 // Don't retry on client errors (4xx)
                 if (response.statusCode() >= 400 && response.statusCode() < 500) {
                     logger.error("Amazon Request Client error - not retrying: sku: {}, status: {}", sku, response.statusCode());
+
+                    try {
+                        Webhook.sendMessage(String.format("Amazon Request Client error - not retrying: sku: $s, status: %d", sku, response.statusCode()));
+                    } catch (Exception ex) {
+                        logger.error("Failed to send webhook message: {}", ex.getMessage());
+                    }
+
                     return response;
                 }
                 
@@ -393,6 +455,13 @@ public class Amazon {
                 } catch (InterruptedException ie) {
                     logger.error("Amazon Request Sleep interrupted: sku: {}, attempt: {}", sku, i + 1);
                     Thread.currentThread().interrupt();
+
+                    try {
+                        Webhook.sendMessage(String.format("Amazon Request Sleep interrupted: sku: %s, attempt: %d", sku, i + 1));
+                    } catch (Exception ex) {
+                        logger.error("Failed to send webhook message: {}", ex.getMessage());
+                    }
+
                     return response;
                 }
             }
