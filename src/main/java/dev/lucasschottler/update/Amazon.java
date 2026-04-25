@@ -22,9 +22,6 @@ import java.util.HashMap;
 public class Amazon {
 
     private final static String SELLER_ID = System.getenv("AMAZON_SELLER_ID");
-    private final static String TOKEN = System.getenv("AMAZON_TOKEN");
-    private final static String CLIENT_SECRET = System.getenv("AMAZON_CLIENT_SECRET");
-    private final static String IDENTIFIER = System.getenv("AMAZON_IDENTIFIER");
     private static final Logger logger = LoggerFactory.getLogger(Amazon.class);
     
     private static final ObjectMapper mapper = new ObjectMapper();
@@ -33,8 +30,7 @@ public class Amazon {
     private final static String ENDPOINT = "https://sellingpartnerapi-na.amazon.com";
     private final static String MARKETPLACE_ID = "ATVPDKIKX0DER";
 
-    private String storedAccessToken;
-    private long tokenExpiresAt = 0;
+    private String accessToken;
 
     public static HashMap<String, Double> getPrices(double basePrice) {
 
@@ -100,35 +96,10 @@ public class Amazon {
         return amazonPrices;
     }
 
-    private String getValidAccessToken() {
-        long currentTime = System.currentTimeMillis();
-        
-        if (storedAccessToken == null || currentTime >= tokenExpiresAt - (5 * 60 * 1000)) {
-            storedAccessToken = refreshAccessToken();
-            if (storedAccessToken != null && !storedAccessToken.isEmpty()) {
-                tokenExpiresAt = currentTime + (3600 * 1000);
-            }
-        }
-        
-        return storedAccessToken;
-    }
-
     public boolean updateItem(DatabaseItem dbItem){
-    
-        logger.info("Amazon: Verifying integrity of accessToken...");
-        String accessToken = getValidAccessToken();
-        logger.info("Amazon: Verified accessToken status.");
         
         if(accessToken == null || accessToken.equals("")) {
-            logger.warn("Amazon: accessToken Failed, SKU: {}", dbItem.sku);
-
-            try {
-                Webhook.sendMessage(String.format("Amazon: accessToken Failed, SKU: %s", dbItem.sku));
-            } catch (Exception ex) {
-                logger.error("Failed to send webhook message: {}", ex.getMessage());
-            }
-
-            return false;
+            refreshToken();
         }
 
         final String get_url = ENDPOINT + "/listings/2021-08-01/items/" + SELLER_ID + "/" 
@@ -137,16 +108,12 @@ public class Amazon {
 
         logger.info("Amazon getUrl = {}", get_url);
 
-        HttpRequest getRequest = HttpRequest.newBuilder()
+        HttpResponse<String> get_response = doRequest(() -> HttpRequest.newBuilder()
             .uri(URI.create(get_url))
             .header("accept", "application/json")
-            .header("x-amz-access-token", accessToken)
+            .header("x-amz-access-token", this.accessToken)
             .GET()
-            .build();
-
-        logger.info("Amazon: Getting item data for sku: {}", dbItem.sku);
-
-        HttpResponse<String> get_response = doRequest(getRequest, dbItem.sku);
+            .build(), dbItem.sku);
 
         if (get_response == null) {
             logger.error("Amazon updateItem got null response, sku: {}", dbItem.sku);
@@ -165,11 +132,12 @@ public class Amazon {
         if(get_response.statusCode() == 404){
             logger.warn("Amazon item not found or doesn't exist. sku: {}", dbItem.sku);
 
-            try {
-                Webhook.sendMessage(String.format("Amazon item not found or doesn't exist. sku: %s", dbItem.sku));
-            } catch (Exception ex) {
-                logger.error("Failed to send webhook message: {}", ex.getMessage());
-            }
+            /**TODO:
+             * Amazon opportunities report
+             * Implement databasing logic for all items that are not on amazon right now but
+             * could be added to the marketplace manually.
+             * https://superiortool.atlassian.net/jira/software/projects/DEV/boards/2?selectedIssue=DEV-26
+            **/
 
             return false;
         }
@@ -342,25 +310,16 @@ public class Amazon {
 
         final String patch_url = ENDPOINT + "/listings/2021-08-01/items/" + SELLER_ID + "/" + dbItem.sku.trim().replace(" ", "%20") + "?marketplaceIds=" + MARKETPLACE_ID;
 
-        HttpRequest patchRequest = HttpRequest.newBuilder()
+        HttpResponse<String> patch_response = doRequest(() -> HttpRequest.newBuilder()
             .uri(URI.create(patch_url))
             .header("accept", "application/json")
             .header("Content-Type", "application/json")
-            .header("x-amz-access-token", accessToken)
+            .header("x-amz-access-token", this.accessToken)
             .method("PATCH", HttpRequest.BodyPublishers.ofString(requestBody.toString()))
-            .build();
-
-        HttpResponse<String> patch_response = doRequest(patchRequest, dbItem.sku);
+            .build(), dbItem.sku);
 
         if(patch_response == null || (patch_response.statusCode() != 200 && patch_response.statusCode() != 204)) {
             logger.error("Amazon PATCH failed, sku: {}, status: {}", dbItem.sku, patch_response != null ? patch_response.statusCode() : "null");
-
-            try {
-                Webhook.sendMessage(String.format("Amazon PATCH failed, sku: %s, status: %d", dbItem.sku, patch_response != null ? patch_response.statusCode() : "null"));
-            } catch (Exception ex) {
-                logger.error("Failed to send webhook message: {}", ex.getMessage());
-            }
-
             return false;
         }
 
@@ -369,103 +328,97 @@ public class Amazon {
         return true;
     }
 
-    private String refreshAccessToken() {
+    private void refreshToken() {
         try {
+
+            String token = System.getenv("AMAZON_TOKEN");
+            String clientId = System.getenv("AMAZON_IDENTIFIER");
+            String clientSecret = System.getenv("AMAZON_CLIENT_SECRET");
+
+            if (token == null || clientId == null || clientSecret == null) {
+                logger.error("Amazon: missing required env vars for token refresh");
+                return;
+            }
+
             String formData = "grant_type=refresh_token" +
-                "&refresh_token=" + TOKEN +
-                "&client_id=" + IDENTIFIER +
-                "&client_secret=" + CLIENT_SECRET;
+                "&refresh_token=" + token +
+                "&client_id=" + clientId +
+                "&client_secret=" + clientSecret;
             
-            HttpRequest request = HttpRequest.newBuilder()
+            HttpResponse<String> response = doRequest(() -> HttpRequest.newBuilder()
                 .uri(URI.create("https://api.amazon.com/auth/o2/token"))
                 .header("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
                 .POST(HttpRequest.BodyPublishers.ofString(formData))
-                .build();
+                .build(), "ACCESS_TOKEN");       
 
-            HttpResponse<String> response = doRequest(request, "ACCESS_TOKEN");            
             if(response == null || response.statusCode() != 200) {
-                logger.error("Amazon token refresh failed. Status: {}", 
-                    response != null ? response.statusCode() : "null");
-                return "";
+                logger.error("Amazon token refresh failed. Status: {}", response != null ? response.statusCode() : "null");
+                return;
             }
 
             ObjectNode responseJson = (ObjectNode) mapper.readTree(response.body());
-            return responseJson.has("access_token") ? responseJson.get("access_token").asText() : "";
+            accessToken = responseJson.has("access_token") ? responseJson.get("access_token").asText() : "";
+
+            if(accessToken != null){
+                logger.info("✅Amazon: Token refreshed successfully");
+            }
             
         } catch (Exception e) {
             logger.error("Amazon refresh_token FAILED. error: {}", e.getMessage());
-            return "";
+            return;
         }
     }
 
-    private static HttpResponse<String> doRequest(HttpRequest request, String sku){
-
+    private HttpResponse<String> doRequest(java.util.function.Supplier<HttpRequest> requestSupplier, String sku) {
         int max_retries = 3;
 
         for (int i = 0; i < max_retries; i++) {
+            HttpRequest request = requestSupplier.get();
 
             logger.info("Amazon Request ATTEMPT: sku: {}, attempt: {}", sku, i + 1);
-
-            HttpResponse<String> response;
+            HttpResponse<String> response = null;
 
             try {
                 response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
                 logger.info("Amazon Request FINISHED: sku: {}", sku);
             } catch (Exception e) {
                 logger.error("Amazon Request EXCEPTION: sku: {}, attempt: {}, error: {}", sku, i + 1, e.getMessage());
-
-                try {
-                    Webhook.sendMessage(String.format("Amazon Request EXCEPTION: sku: %s, attempt: %d, error: %s", sku, i + 1, e.getMessage()));
-                } catch (Exception ex) {
-                    logger.error("Failed to send webhook message: {}", ex.getMessage());
-                }
-
                 continue;
             }
 
-            if (response.statusCode() == 204 || response.statusCode() == 200) {
+            if (response.statusCode() == 200 || response.statusCode() == 204) {
                 logger.info("Amazon Request SUCCESS: sku: {}", sku);
-
                 return response;
-            } else {
-                logger.error("Amazon Request ERROR: sku: {}, status: {}, attempt: {}, body: {}", sku, response.statusCode(), i + 1, response.body());
+            }
 
-                try {
-                    Webhook.sendMessage(String.format("Amazon Request ERROR: sku: %s, status: %d, attempt: %d, body: %s", sku, response.statusCode(), i + 1, response.body()));
-                } catch (Exception ex) {
-                    logger.error("Failed to send webhook message: {}", ex.getMessage());
-                }
+            logger.error("Amazon Request ERROR: sku: {}, attempt: {}, status: {}, body: {}", sku, i + 1, response.statusCode(), response.body());
 
-                // Don't retry on client errors (4xx)
-                if (response.statusCode() >= 400 && response.statusCode() < 500) {
-                    logger.error("Amazon Request Client error - not retrying: sku: {}, status: {}", sku, response.statusCode());
+            if (response.statusCode() == 401) {
+                refreshToken();
+                continue;
+            }
 
-                    try {
-                        Webhook.sendMessage(String.format("Amazon Request Client error - not retrying: sku: $s, status: %d", sku, response.statusCode()));
-                    } catch (Exception ex) {
-                        logger.error("Failed to send webhook message: {}", ex.getMessage());
-                    }
+            if (response.statusCode() >= 400 && response.statusCode() < 500) {
+                return response; // Return it so callers can inspect (e.g. 404 handling)
+            }
 
-                    return response;
-                }
-                
-                double wait = Math.pow(2, i) + Math.random();
-                try {
-                    Thread.sleep((long)(wait * 1000));
-                } catch (InterruptedException ie) {
-                    logger.error("Amazon Request Sleep interrupted: sku: {}, attempt: {}", sku, i + 1);
-                    Thread.currentThread().interrupt();
-
-                    try {
-                        Webhook.sendMessage(String.format("Amazon Request Sleep interrupted: sku: %s, attempt: %d", sku, i + 1));
-                    } catch (Exception ex) {
-                        logger.error("Failed to send webhook message: {}", ex.getMessage());
-                    }
-
-                    return response;
-                }
+            double wait = Math.pow(2, i) + Math.random();
+            try {
+                Thread.sleep((long)(wait * 1000));
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                return null;
             }
         }
+
+        logger.info("Amazon: Failed poison!: sku: {}, attempt: {}", sku, max_retries);
+
+        try {
+            Webhook.sendMessage(String.format("Amazon: Failed poison: sku: %s, attempt: %d", sku, max_retries));
+        } catch (Exception ex) {
+            logger.error("Failed to send webhook message: {}", ex.getMessage());
+        }
+
         return null;
     }
 

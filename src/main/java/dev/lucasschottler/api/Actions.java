@@ -136,18 +136,35 @@ public class Actions {
 
         if(dbItem.marketplaces.contains("amazon")){
             logger.info("Actions update pushing to amazon, sku: {}", dbItem.sku);
-            amazon.updateItem(dbItem);
+            if(amazon.updateItem(dbItem)){
+                db.updateLastSuccess("amazon", sku);
+            }
             logger.info("Actions update FINISHED pushing to amazon, sku: {}", dbItem.sku);
         }
 
         if(dbItem.marketplaces.contains("ebay")){
+
+            boolean successOnItem = false;
+            boolean successOnOffer = false;
+
             logger.info("Actions update updating inventory to ebay, sku: {}", dbItem.sku);
-            Ebay.createOrUpdateItem(dbItem);
-            logger.info("Actions update FINISHED updating inventory to ebay, sku: {}", dbItem.sku);
-            
+            if (Ebay.createOrUpdateItem(dbItem)){
+                logger.info("Actions update SUCCESS updating inventory to ebay, sku: {}", dbItem.sku);
+                successOnItem = true;
+            } else {
+                logger.info("Actions update FAILURE updating inventory to ebay, sku: {}", dbItem.sku);
+            }
+
             logger.info("Actions update offer to ebay, sku: {}", dbItem.sku);
-            Ebay.updateOffer(dbItem);
-            logger.info("Actions update FINISHED offer to ebay, sku: {}", dbItem.sku);
+            if(Ebay.updateOffer(dbItem)){
+                logger.info("Actions update SUCCESS offer to ebay, sku: {}", dbItem.sku);
+                successOnOffer = true;
+            }
+
+            if(successOnItem && successOnOffer){
+                db.updateLastSuccess("ebay", sku);
+            }
+            
         }
         
         return true;
@@ -171,7 +188,6 @@ public class Actions {
                 .map(item -> CompletableFuture.runAsync(() -> {
                     try {
                         if ("false".equals(stateService.getState("isUpdating"))) {
-                            logger.info("Actions updateInventory cancelled, stopping early");
                             return;
                         }
                         processItem(item);

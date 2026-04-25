@@ -48,6 +48,8 @@ public class Databasing {
         "milwaukee_images", "lakes_images", "barcode_title"
     );
 
+    private static final Set<String> allowedMarketplaces = Set.of("amazon", "ebay");
+
     private final JdbcTemplate jdbcTemplate;
       
     public Databasing(JdbcTemplate jdbcTemplate) {
@@ -426,8 +428,13 @@ public class Databasing {
         return jdbcTemplate.queryForList(sql, safeSku);
     }
 
-    public boolean updateLastSuccess(String sku){
-        String sql = "UPDATE superior SET timestamps = array_append(timestamps, NOW()) WHERE sku = ?;";
+    public boolean updateLastSuccess(String marketplace, String sku){
+
+        if(!allowedMarketplaces.contains(marketplace)){
+            return false;
+        }
+
+        String sql = "UPDATE superior SET last_" + marketplace + " = NOW() WHERE sku = ?;";
         return jdbcTemplate.update(sql, sku) > 0;
     }
 
