@@ -53,7 +53,7 @@ public class Report {
             if (newItem != null) {
                 //logger.info("Found item with lakesid: {}", newItem.lakesid);
                 newItems.add(newItem);
-                db.addReportItem(newItem);
+                db.addReportNewItem(newItem);
                 concurrentFails = 0;
             } else {
                 logger.info("No item found for lakesid: {}, stopping loop", queryId);

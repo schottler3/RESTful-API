@@ -380,10 +380,16 @@ public class Databasing {
         return alternatives;
     }
 
-    public boolean addReportItem(LakesItem item) {
-        String sql = "INSERT INTO report (lakesid, title, description, sku, lakes_price, lakes_images, quantity, date_added) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (lakesid) DO NOTHING";
+    public boolean addReportNewItem(LakesItem item) {
+        String sql = "INSERT INTO report (lakesid, title, description, sku, lakes_price, lakes_images, quantity, date_added, type) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new') ON CONFLICT (lakesid) DO NOTHING";
         return jdbcTemplate.update(sql, item.lakesid, item.title, item.description, item.sku, item.price, item.imageLink, item.quantity, Timestamp.valueOf(LocalDateTime.now())) > 0;
+    }
+
+    public boolean addReportDiscItem(DatabaseItem item) {
+        String sql = "INSERT INTO report (lakesid, title, description, sku, lakes_price, lakes_images, quantity, date_added, type) " +
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'disc') ON CONFLICT (lakesid) DO NOTHING";
+        return jdbcTemplate.update(sql, item.lakesid, item.title, item.description, item.sku, item.lakes_price, item.lakes_images, item.quantity, Timestamp.valueOf(LocalDateTime.now())) > 0;
     }
 
     public boolean deleteReportItem(int lakesid){
@@ -392,11 +398,11 @@ public class Databasing {
         return jdbcTemplate.update(sql,lakesid) > 0;
     }
 
-    public List<Map<String,Object>> getReport(){
+    public List<Map<String,Object>> getReport(String type){
 
-        String sql = "SELECT * FROM report ORDER BY sku ASC";
+        String sql = "SELECT * FROM report WHERE type=? ORDER BY sku ASC";
 
-        return jdbcTemplate.queryForList(sql);
+        return jdbcTemplate.queryForList(sql, type);
     }
 
     public Map<String, Object> getReport(int lakesid, String type) {

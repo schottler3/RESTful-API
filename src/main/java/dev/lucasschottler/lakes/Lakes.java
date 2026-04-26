@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import dev.lucasschottler.database.Databasing;
 import dev.lucasschottler.update.Ebay;
 
 @Service
@@ -23,6 +24,11 @@ public class Lakes {
     private final Logger logger = LoggerFactory.getLogger(Ebay.class);
     private final String ITEMLINK = "https://swymstore-v3pro-01.swymrelay.com/api/v2/provider/getPlatformProducts?pid=jn9XxHMVJRoc160vy%2BI3OVpfL8Wq3P19N1qklE2GjTk%3D";
     private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final Databasing db;
+
+    public Lakes(Databasing db){
+        this.db = db;
+    }
 
     // #region TOOL_NAMES
     private final List<String> TOOL_NAMES = Arrays.asList(
@@ -157,9 +163,8 @@ public class Lakes {
                 }
             }
 
-            LakesItem lakesItem = new LakesItem(response.body());
+            return new LakesItem(response.body());
 
-            return lakesItem;
         } catch (Exception e) {
             logger.error("Error during POST request", e);
         }

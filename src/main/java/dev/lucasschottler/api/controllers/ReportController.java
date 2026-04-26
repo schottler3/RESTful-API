@@ -35,9 +35,21 @@ public class ReportController {
         this.report = report;
     }
 
-    @GetMapping({"", "/"})
-    public ResponseEntity<List<Map<String,Object>>> getReport(){
-        return ResponseEntity.ok(db.getReport());
+    @PostMapping({"", "/"})
+    public ResponseEntity<List<Map<String,Object>>> getReportByType(@RequestBody(required = true) Map<String, String> requestBody) {
+
+        String type = requestBody.get("type");
+
+        if(type != null && !type.isBlank()){
+            List<Map<String,Object>> retrievedItems = db.getReport(type);
+
+            if (retrievedItems != null && !retrievedItems.isEmpty()) {
+                return ResponseEntity.ok(retrievedItems);
+            }
+            return ResponseEntity.ok(List.of());
+        }
+
+        return ResponseEntity.badRequest().build();
     }
     
     @GetMapping("/new")

@@ -54,6 +54,11 @@ public class Actions {
 
         LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
 
+        if(lakesItem == null){
+            db.addReportDiscItem(dbItem);
+            return false;
+        }
+
         //logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
         
         db.resetItem(lakesItem);
@@ -87,6 +92,11 @@ public class Actions {
             LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
             //logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
 
+            if(lakesItem == null){
+                db.addReportDiscItem(dbItem);
+                return dbItem;
+            }
+
             dbItem.updateItemUsingLakes(lakesItem, db);
             //logger.info("Actions resolved updateItemUsingLakes on database for sku: {}", dbItem.sku);
         } else {
@@ -101,8 +111,12 @@ public class Actions {
                     LakesItem lakesChildItem = lakes.getLakesItem(dbChildItem.lakesid);
                     //logger.info("Actions update resolved lakesItem for sku: {} using dependency lakesid", lakesChildItem.sku);
 
-                    dbItem.updateItemUsingLakes(lakesChildItem, db);
-                    //logger.info("Actions resolved updateItemUsingLakes on database for sku: {} using dependency lakesid", dbItem.sku);
+                    if(lakesChildItem == null){
+                        db.addReportDiscItem(dbItem);
+                    } else {
+                        dbItem.updateItemUsingLakes(lakesChildItem, db);
+                        //logger.info("Actions resolved updateItemUsingLakes on database for sku: {} using dependency lakesid", dbItem.sku);
+                    }
                 }
             }
         }
@@ -233,8 +247,13 @@ public class Actions {
             DatabaseItem dbItem = new DatabaseItem(item);
 
             LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
-            dbItem.updateItemUsingLakes(lakesItem, db);
 
+            if(lakesItem == null){
+                db.addReportDiscItem(dbItem);
+            } else {
+                dbItem.updateItemUsingLakes(lakesItem, db);
+            }
+            
             if (dbItem.square_variation_id != null) {
                 Integer square_quantity = square.getInventoryCountByVariationID(dbItem.square_variation_id);
                 //logger.info("Actions: Square quantity found: {}", square_quantity);
