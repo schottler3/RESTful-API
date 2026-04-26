@@ -30,6 +30,12 @@ public class Amazon {
     private final static String ENDPOINT = "https://sellingpartnerapi-na.amazon.com";
     private final static String MARKETPLACE_ID = "ATVPDKIKX0DER";
 
+    public class AmazonNotFoundException extends Exception{
+        public AmazonNotFoundException(String sku) {
+            super("Amazon item not found! sku: " + sku);  
+        }
+    }
+
     private String accessToken;
 
     public static HashMap<String, Double> getPrices(double basePrice) {
@@ -96,7 +102,7 @@ public class Amazon {
         return amazonPrices;
     }
 
-    public boolean updateItem(DatabaseItem dbItem){
+    public boolean updateItem(DatabaseItem dbItem) throws AmazonNotFoundException{
         
         if(accessToken == null || accessToken.equals("")) {
             refreshToken();
@@ -106,7 +112,7 @@ public class Amazon {
             + dbItem.sku.trim().replace(" ", "%20") 
             + "?marketplaceIds=" + MARKETPLACE_ID + "&issueLocale=en_US&includedData=attributes";
 
-        logger.info("Amazon getUrl = {}", get_url);
+        //logger.info("Amazon getUrl = {}", get_url);
 
         HttpResponse<String> get_response = doRequest(() -> HttpRequest.newBuilder()
             .uri(URI.create(get_url))
@@ -118,16 +124,10 @@ public class Amazon {
         if (get_response == null) {
             logger.error("Amazon updateItem got null response, sku: {}", dbItem.sku);
 
-            try {
-                Webhook.sendMessage(String.format("Amazon updateItem got null response, sku: %s", dbItem.sku));
-            } catch (Exception ex) {
-                logger.error("Failed to send webhook message: {}", ex.getMessage());
-            }
-
             return false;
         }
 
-        logger.info("Amazon updateItem getItem returned: {}", get_response.statusCode());
+        //logger.info("Amazon updateItem getItem returned: {}", get_response.statusCode());
 
         if(get_response.statusCode() == 404){
             logger.warn("Amazon item not found or doesn't exist. sku: {}", dbItem.sku);
@@ -139,7 +139,7 @@ public class Amazon {
              * https://superiortool.atlassian.net/jira/software/projects/DEV/boards/2?selectedIssue=DEV-26
             **/
 
-            return false;
+            throw new AmazonNotFoundException(dbItem.sku);
         }
 
         ObjectNode itemData;
@@ -149,11 +149,7 @@ public class Amazon {
         } catch (Exception e){
             logger.error("Amazon JSON mapper error on get_response, sku: {}", dbItem.sku);
 
-            try {
-                Webhook.sendMessage(String.format("Amazon JSON mapper error on get_response, sku: %s", dbItem.sku));
-            } catch (Exception ex) {
-                logger.error("Failed to send webhook message: {}", ex.getMessage());
-            }
+            Webhook.sendMessage(String.format("Amazon JSON mapper error on get_response, sku: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", dbItem.sku, dbItem.sku));
 
             return false;
         }
@@ -162,7 +158,7 @@ public class Amazon {
         String productType = "PRODUCT"; // default fallback
         if (itemData.has("productType")) {
             productType = itemData.get("productType").asText();
-            logger.info("Amazon productType for sku {}: {}", dbItem.sku, productType);
+            //logger.info("Amazon productType for sku {}: {}", dbItem.sku, productType);
         } else {
             logger.warn("Amazon productType not found in response for sku: {}, using default", dbItem.sku);
         }
@@ -173,11 +169,7 @@ public class Amazon {
         } else {
             logger.error("Amazon itemData missing 'attributes' field, sku: {}", dbItem.sku);
 
-            try {
-                Webhook.sendMessage(String.format("Amazon itemData missing 'attributes' field, sku: %s", dbItem.sku));
-            } catch (Exception ex) {
-                logger.error("Failed to send webhook message: {}", ex.getMessage());
-            }
+            Webhook.sendMessage(String.format("Amazon itemData missing 'attributes' field, sku: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", dbItem.sku, dbItem.sku));
 
             return false;
         }
@@ -306,7 +298,7 @@ public class Amazon {
         requestBody.put("productType", productType);
         requestBody.set("patches", patches);
 
-        logger.info("Amazon PATCH request body, sku: {}, body: {}", dbItem.sku, requestBody.toString());
+        //logger.info("Amazon PATCH request body, sku: {}, body: {}", dbItem.sku, requestBody.toString());
 
         final String patch_url = ENDPOINT + "/listings/2021-08-01/items/" + SELLER_ID + "/" + dbItem.sku.trim().replace(" ", "%20") + "?marketplaceIds=" + MARKETPLACE_ID;
 
@@ -323,7 +315,7 @@ public class Amazon {
             return false;
         }
 
-        logger.info("Amazon PATCH finished, sku: {}", dbItem.sku);
+        //logger.info("Amazon PATCH finished, sku: {}", dbItem.sku);
 
         return true;
     }
@@ -374,51 +366,75 @@ public class Amazon {
 
         for (int i = 0; i < max_retries; i++) {
             HttpRequest request = requestSupplier.get();
-
-            logger.info("Amazon Request ATTEMPT: sku: {}, attempt: {}", sku, i + 1);
             HttpResponse<String> response = null;
 
             try {
                 response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-                logger.info("Amazon Request FINISHED: sku: {}", sku);
+                //logger.info("Amazon Request FINISHED: sku: {}", sku);
             } catch (Exception e) {
                 logger.error("Amazon Request EXCEPTION: sku: {}, attempt: {}, error: {}", sku, i + 1, e.getMessage());
                 continue;
             }
 
-            if (response.statusCode() == 200 || response.statusCode() == 204) {
-                logger.info("Amazon Request SUCCESS: sku: {}", sku);
-                return response;
-            }
+            if (response != null) {
+                int status = response.statusCode();
 
-            logger.error("Amazon Request ERROR: sku: {}, attempt: {}, status: {}, body: {}", sku, i + 1, response.statusCode(), response.body());
-
-            if (response.statusCode() == 401) {
-                refreshToken();
-                continue;
-            }
-
-            if (response.statusCode() >= 400 && response.statusCode() < 500) {
-                return response; // Return it so callers can inspect (e.g. 404 handling)
-            }
-
-            double wait = Math.pow(2, i) + Math.random();
-            try {
-                Thread.sleep((long)(wait * 1000));
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-                return null;
+                switch (status) {
+                    case 200:
+                    case 204:
+                        logger.info("Amazon Request SUCCESS: sku: {}", sku);
+                        return response;
+                    case 400:
+                        logger.warn("Amazon: Bad request, sku: {}, body: {}", sku, response.body());
+                        Webhook.sendMessage(String.format("Amazon: 400 sku: %s, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, response.body(), sku));
+                        return null;
+                    case 401:
+                        refreshToken();
+                        continue;
+                    case 403:
+                        logger.error("Amazon: Forbidden, check permissions. sku: {}, body: {}", sku, response.body());
+                        Webhook.sendMessage(String.format("Amazon: 403 sku: %s, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, response.body(), sku));
+                        return null;
+                    case 404:
+                        logger.warn("Amazon: 404 not found, sku: {}", sku);
+                        return response; // returned so caller can handle (e.g. item doesn't exist yet)
+                    case 422:
+                        logger.error("Amazon: Invalid request data, sku: {}, body: {}", sku, response.body());
+                        Webhook.sendMessage(String.format("Amazon: 422 sku: %s, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, response.body(), sku));
+                        return null;
+                    case 429:
+                        try {
+                            String retryAfter = response.headers().firstValue("Retry-After").orElse(null);
+                            long waitMs = retryAfter != null
+                                ? Long.parseLong(retryAfter) * 1000
+                                : (long)(Math.pow(2, i) * 1000);
+                            logger.warn("Amazon: Rate limited, waiting {}ms. sku: {}", waitMs, sku);
+                            Thread.sleep(waitMs);
+                        } catch (Exception ex) {
+                            logger.error("Amazon: Sleep failed: {}", ex.getMessage());
+                        }
+                        continue;
+                    default:
+                        if (status >= 500) {
+                            logger.error("Amazon: Server error, will retry. sku: {}, status: {}, body: {}", sku, status, response.body());
+                            double wait = Math.pow(2, i) + Math.random();
+                            try {
+                                Thread.sleep((long)(wait * 1000));
+                            } catch (InterruptedException ie) {
+                                Thread.currentThread().interrupt();
+                                return null;
+                            }
+                            continue;
+                        }
+                        logger.error("Amazon: Unhandled client error, not retrying. sku: {}, status: {}, body: {}", sku, status, response.body());
+                        Webhook.sendMessage(String.format("Amazon: Unhandled client error, not retrying. sku: %s, status: %d, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, status, response.body(), sku));
+                        return null;
+                }
             }
         }
 
-        logger.info("Amazon: Failed poison!: sku: {}, attempt: {}", sku, max_retries);
-
-        try {
-            Webhook.sendMessage(String.format("Amazon: Failed poison: sku: %s, attempt: %d", sku, max_retries));
-        } catch (Exception ex) {
-            logger.error("Failed to send webhook message: {}", ex.getMessage());
-        }
-
+        logger.error("Amazon: Failed poison!: sku: {}", sku);
+        Webhook.sendMessage(String.format("Amazon: Failed poison!: sku: %s, attempt: %d, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, max_retries, sku));
         return null;
     }
 

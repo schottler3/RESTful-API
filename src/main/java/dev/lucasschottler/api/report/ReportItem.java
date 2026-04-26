@@ -23,7 +23,7 @@ public class ReportItem {
     public ReportItem(Map<String, Object> item, String type){
 
         if(item != null){
-            logger.info("ReportItem: Parsing report item: {}", item.toString());
+            //logger.info("ReportItem: Parsing report item: {}", item.toString());
 
             this.lakesid = (Integer) item.get("lakesid");
             this.title = (String) item.get("title");

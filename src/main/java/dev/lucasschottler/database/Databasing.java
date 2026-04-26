@@ -45,7 +45,7 @@ public class Databasing {
         "bulk_split_price",
         // String columns
         "type", "mpn", "title", "description", "upc", "sku",
-        "milwaukee_images", "lakes_images", "barcode_title"
+        "milwaukee_images", "lakes_images", "barcode_title", "marketplaces"
     );
 
     private static final Set<String> allowedMarketplaces = Set.of("amazon", "ebay");
@@ -200,7 +200,7 @@ public class Databasing {
     }
 
     public boolean createItem(DatabaseItem dbItem, String marketplaces) {
-        logger.info("Databasing: Creating new item with sku: {}", dbItem.sku);
+        //logger.info("Databasing: Creating new item with sku: {}", dbItem.sku);
 
         String sql = """
             INSERT INTO superior (
@@ -224,7 +224,7 @@ public class Databasing {
                 dbItem.lakes_price, dbItem.custom_price, dbItem.fulfillment, dbItem.square_variation_id, marketplaces
             );
 
-            logger.info("Databasing: createItem created with sku: {}", dbItem.sku);
+            //logger.info("Databasing: createItem created with sku: {}", dbItem.sku);
 
             return updated > 0;
 
@@ -257,7 +257,7 @@ public class Databasing {
 
     public boolean updateCustomQuantity(String sku, int quantity){
 
-        logger.info("Databasing: Updating Custom quantity on sku = {} with q = {}", sku, quantity);
+        //logger.info("Databasing: Updating Custom quantity on sku = {} with q = {}", sku, quantity);
 
         String sql = "UPDATE superior SET custom_quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE sku = ?";
 
@@ -342,7 +342,7 @@ public class Databasing {
 
     public boolean addBom(String parent_sku, String child_sku, Double quantity){
 
-        logger.info("Adding BOM item to parent {}: {} q: {}", parent_sku, child_sku, quantity);
+        //logger.info("Adding BOM item to parent {}: {} q: {}", parent_sku, child_sku, quantity);
 
         try{
             String sql = "INSERT INTO bom (parent_sku, child_sku, quantity) VALUES (?, ?, ?) " +
@@ -357,7 +357,7 @@ public class Databasing {
     }
 
     public int removeBom(String parent_sku, String child_sku){
-        logger.info("Removing BOM item to parent {}: {}", parent_sku, child_sku);
+        //logger.info("Removing BOM item to parent {}: {}", parent_sku, child_sku);
 
         try{
             String sql = "DELETE FROM bom WHERE parent_sku = ? AND child_sku = ?";
@@ -369,13 +369,13 @@ public class Databasing {
     }
 
     public List<java.util.Map<String,Object>> getAlts(String sku, String mpn){
-        logger.info("Databasing received request for all alternatives for parentSku: {}", mpn);
+        //logger.info("Databasing received request for all alternatives for parentSku: {}", mpn);
         
         String sql = "SELECT * FROM superior WHERE mpn = ? AND sku != ?;";
 
         List<java.util.Map<String,Object>> alternatives = jdbcTemplate.queryForList(sql,mpn, sku);
 
-        logger.info("Databasing retrieved all alternatives for parentSku: {} - {} ", mpn, alternatives.toString());
+       // logger.info("Databasing retrieved all alternatives for parentSku: {} - {} ", mpn, alternatives.toString());
 
         return alternatives;
     }

@@ -18,6 +18,7 @@ import dev.lucasschottler.database.Databasing;
 import dev.lucasschottler.lakes.Lakes;
 import dev.lucasschottler.lakes.LakesItem;
 import dev.lucasschottler.update.Amazon;
+import dev.lucasschottler.update.Amazon.AmazonNotFoundException;
 import dev.lucasschottler.update.Ebay;
 
 @Service
@@ -46,14 +47,14 @@ public class Actions {
             return false;
         }
 
-        logger.info("Actions starting update on item: {}", item);
+        //logger.info("Actions starting update on item: {}", item);
         DatabaseItem dbItem = new DatabaseItem(item);
 
-        logger.info("Actions update resolved dbItem for sku: {}", dbItem.sku);
+        //logger.info("Actions update resolved dbItem for sku: {}", dbItem.sku);
 
         LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
 
-        logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
+        //logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
         
         db.resetItem(lakesItem);
 
@@ -62,9 +63,9 @@ public class Actions {
 
     public DatabaseItem updateItem(String sku){
 
-        logger.info("Actions: Getting item data for updateItem... {}", sku);
+        //logger.info("Actions: Getting item data for updateItem... {}", sku);
         Map<String, Object> item = db.getData(sku);
-        logger.info("Actions: Item data retrieved for {}", sku);
+        //logger.info("Actions: Item data retrieved for {}", sku);
 
         if(item == null){
             logger.warn("Actions failed to update sku: {} due to no results", sku);
@@ -73,9 +74,9 @@ public class Actions {
 
         Double bulkSplitPrice = getBulkSplitPrice(sku);
 
-        logger.info("Actions starting update on item: {}", item);
+        //logger.info("Actions starting update on item: {}", item);
         DatabaseItem dbItem = new DatabaseItem(item);
-        logger.info("Actions update resolved dbItem for sku: {}", dbItem.sku);
+        //logger.info("Actions update resolved dbItem for sku: {}", dbItem.sku);
 
         if(bulkSplitPrice != null && bulkSplitPrice > 0){
             dbItem.setPricingFields(bulkSplitPrice, db);
@@ -84,10 +85,10 @@ public class Actions {
         Integer lakesid = dbItem.lakesid;
         if(lakesid != null){
             LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
-            logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
+            //logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
 
             dbItem.updateItemUsingLakes(lakesItem, db);
-            logger.info("Actions resolved updateItemUsingLakes on database for sku: {}", dbItem.sku);
+            //logger.info("Actions resolved updateItemUsingLakes on database for sku: {}", dbItem.sku);
         } else {
             List<Map<String,Object>> bom = db.getBom(dbItem.sku);
 
@@ -98,10 +99,10 @@ public class Actions {
                     DatabaseItem dbChildItem = new DatabaseItem(db.getData(child_sku));
 
                     LakesItem lakesChildItem = lakes.getLakesItem(dbChildItem.lakesid);
-                    logger.info("Actions update resolved lakesItem for sku: {} using dependency lakesid", lakesChildItem.sku);
+                    //logger.info("Actions update resolved lakesItem for sku: {} using dependency lakesid", lakesChildItem.sku);
 
                     dbItem.updateItemUsingLakes(lakesChildItem, db);
-                    logger.info("Actions resolved updateItemUsingLakes on database for sku: {} using dependency lakesid", dbItem.sku);
+                    //logger.info("Actions resolved updateItemUsingLakes on database for sku: {} using dependency lakesid", dbItem.sku);
                 }
             }
         }
@@ -110,7 +111,7 @@ public class Actions {
 
             Integer square_quantity = square.getInventoryCountByVariationID(dbItem.square_variation_id);
 
-            logger.info("Actions: Square quantity found: {}", square_quantity);
+            //logger.info("Actions: Square quantity found: {}", square_quantity);
 
             if(square_quantity != null){
                 int quantity = square.getInventoryCountByVariationID(dbItem.square_variation_id);
@@ -123,23 +124,30 @@ public class Actions {
 
     public boolean updateAndPushItem(String sku){
 
-        logger.info("Actions: calling updateItem... {}", sku);
+        //logger.info("Actions: calling updateItem... {}", sku);
         DatabaseItem dbItem = updateItem(sku);
-        logger.info("Actions: success! Got dbItem {}", sku);
+        //logger.info("Actions: success! Got dbItem {}", sku);
 
-        logger.info("Actions: Recieved object: {}", dbItem.toString());
+        //logger.info("Actions: Recieved object: {}", dbItem.toString());
 
         if(dbItem.marketplaces == null || dbItem.marketplaces.equals("")){
-            logger.info("Actions update and push found no marketplaces!, sku: {}", dbItem.sku);
+            //logger.info("Actions update and push found no marketplaces!, sku: {}", dbItem.sku);
             return true;
         }
 
         if(dbItem.marketplaces.contains("amazon")){
-            logger.info("Actions update pushing to amazon, sku: {}", dbItem.sku);
-            if(amazon.updateItem(dbItem)){
-                db.updateLastSuccess("amazon", sku);
+            try{
+                //logger.info("Actions update pushing to amazon, sku: {}", dbItem.sku);
+                if(amazon.updateItem(dbItem)){
+                    db.updateLastSuccess("amazon", sku);
+                } else {
+                    logger.info("Actions: amazon failure to update item, sku: {}", dbItem.sku);
+                }
+                //logger.info("Actions update FINISHED pushing to amazon, sku: {}", dbItem.sku);
+            } catch (AmazonNotFoundException e){
+                logger.info("Actions: Amazon item not found Exception: {}", e);
             }
-            logger.info("Actions update FINISHED pushing to amazon, sku: {}", dbItem.sku);
+            
         }
 
         if(dbItem.marketplaces.contains("ebay")){
@@ -147,33 +155,41 @@ public class Actions {
             boolean successOnItem = false;
             boolean successOnOffer = false;
 
-            logger.info("Actions update updating inventory to ebay, sku: {}", dbItem.sku);
-            if (Ebay.createOrUpdateItem(dbItem)){
-                logger.info("Actions update SUCCESS updating inventory to ebay, sku: {}", dbItem.sku);
+            //logger.info("Actions update updating inventory to ebay, sku: {}", dbItem.sku);
+
+            boolean ebayCreateOrUpdate = dbItem.last_ebay == null 
+                ? Ebay.createOrUpdateItem(dbItem) 
+                : Ebay.updateItem(dbItem);
+
+            if (ebayCreateOrUpdate){
+                //logger.info("Actions update SUCCESS updating inventory to ebay, sku: {}", dbItem.sku);
                 successOnItem = true;
             } else {
-                logger.info("Actions update FAILURE updating inventory to ebay, sku: {}", dbItem.sku);
+                logger.info("Actions: createOrUpdate FAILURE updating inventory to ebay, sku: {}", dbItem.sku);
             }
 
-            logger.info("Actions update offer to ebay, sku: {}", dbItem.sku);
+            //logger.info("Actions update offer to ebay, sku: {}", dbItem.sku);
             if(Ebay.updateOffer(dbItem)){
-                logger.info("Actions update SUCCESS offer to ebay, sku: {}", dbItem.sku);
+                //logger.info("Actions update SUCCESS offer to ebay, sku: {}", dbItem.sku);
                 successOnOffer = true;
+            } else {
+                logger.info("Actions: updateOffer FAILURE updating inventory to ebay, sku: {}", dbItem.sku);
             }
 
             if(successOnItem && successOnOffer){
                 db.updateLastSuccess("ebay", sku);
+            } else {
+                logger.warn("Actions: Failure to update ebay offer or item, sku: {}", dbItem.sku);
             }
-            
         }
         
         return true;
     }
 
     public void updateInventory() {
-        logger.info("Actions getting database...");
+        //logger.info("Actions getting database...");
         List<Map<String, Object>> data = db.queryDatabase(null, 12000, null);
-        logger.info("Actions received database with {} items", data.size());
+        //logger.info("Actions received database with {} items", data.size());
 
         if (data.isEmpty()) {
             logger.warn("Actions database data is empty!");
@@ -207,18 +223,55 @@ public class Actions {
 
     private void processItem(Map<String, Object> item) {
         try {
-            logger.info("Actions starting on item: {}", item);
+            //logger.info("Actions starting on item: {}", item);
             DatabaseItem dbItem = new DatabaseItem(item);
 
             LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
-
             dbItem.updateItemUsingLakes(lakesItem, db);
 
-            amazon.updateItem(dbItem);
+            if (dbItem.square_variation_id != null) {
+                Integer square_quantity = square.getInventoryCountByVariationID(dbItem.square_variation_id);
+                //logger.info("Actions: Square quantity found: {}", square_quantity);
+                if (square_quantity != null) {
+                    db.updateCustomQuantity(dbItem.sku, square_quantity);
+                    dbItem.custom_quantity = square_quantity;
+                }
+            }
 
-            Ebay.updateItem(dbItem);
+            if (dbItem.marketplaces == null || dbItem.marketplaces.isEmpty()) {
+                //logger.info("Actions: No marketplaces found for sku: {}", dbItem.sku);
+                return;
+            }
 
-            logger.info("Actions completed processing sku: {}", dbItem.sku);
+            if (dbItem.marketplaces.contains("amazon")) {
+                try{
+                    if (!amazon.updateItem(dbItem)) {
+                        logger.info("Actions: Failure to update amazon item in process!: {}", dbItem.sku);
+                    } else {
+                        db.updateLastSuccess("amazon", dbItem.sku);
+                    }
+                } catch (AmazonNotFoundException e){
+                    logger.info("Actions: Amazon item was not found exception!: {}", e);
+                }
+            }
+
+            if (dbItem.marketplaces.contains("ebay")) {
+                boolean ebaySuccess = dbItem.last_ebay == null
+                    ? Ebay.createOrUpdateItem(dbItem)
+                    : Ebay.updateItem(dbItem);
+
+                if (ebaySuccess) {
+                    if (Ebay.updateOffer(dbItem)) {
+                        db.updateLastSuccess("ebay", dbItem.sku);
+                    } else {
+                        logger.info("Actions: Failure to update ebay offer in process!: {}", dbItem.sku);
+                    }
+                } else {
+                    logger.info("Actions: Failure to update ebay item in process!: {}", dbItem.sku);
+                }
+            }
+
+            //logger.info("Actions completed processing sku: {}", dbItem.sku);
         } catch (Exception e) {
             logger.error("Error processing item: {}", item, e);
         }

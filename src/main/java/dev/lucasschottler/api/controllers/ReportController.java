@@ -61,18 +61,18 @@ public class ReportController {
         Map<String, String> response = new HashMap<>();
 
         if(lakesid == null){
-            logger.info("ReportController: Received request to add all new report item to inventory");
+            //logger.info("ReportController: Received request to add all new report item to inventory");
 
             List<Integer> allNewLakesids = db.getAllReportIds("new");
 
             for (Integer newItem : allNewLakesids) {
                 LakesItem item = lakes.getLakesItem(newItem);
 
-                logger.info("ReportController: Successfully pulled LakesItem from lakesid with sku: {}", item.sku);
+                //logger.info("ReportController: Successfully pulled LakesItem from lakesid with sku: {}", item.sku);
 
                 DatabaseItem dbItem = new DatabaseItem(item);
 
-                logger.info("ReportController: Successfully made and casted DatabaseItem from LakesItem. sku: {}", dbItem.sku);
+                //logger.info("ReportController: Successfully made and casted DatabaseItem from LakesItem. sku: {}", dbItem.sku);
 
                 if(db.createItem(dbItem, marketplaces)){
                     logger.info("Report item added successfully: {}", item.lakesid);
@@ -90,15 +90,15 @@ public class ReportController {
             return ResponseEntity.status(400).body(response);
         }
 
-        logger.info("ReportController: Received request to add new report item to inventory. Lakesid: {}", lakesid);
+        //logger.info("ReportController: Received request to add new report item to inventory. Lakesid: {}", lakesid);
 
         LakesItem item = lakes.getLakesItem(Integer.parseInt(lakesid));
 
-        logger.info("ReportController: Successfully pulled LakesItem from lakesid with sku: {}", item.sku);
+        //logger.info("ReportController: Successfully pulled LakesItem from lakesid with sku: {}", item.sku);
 
         DatabaseItem dbItem = new DatabaseItem(item);
 
-        logger.info("ReportController: Successfully made and casted DatabaseItem from LakesItem. sku: {}", dbItem.sku);
+        //logger.info("ReportController: Successfully made and casted DatabaseItem from LakesItem. sku: {}", dbItem.sku);
 
         if(db.createItem(dbItem, marketplaces) && db.deleteReportItem(Integer.parseInt(lakesid))){
             logger.info("Report item added successfully and deleted from report: {}", lakesid);
@@ -114,7 +114,7 @@ public class ReportController {
     @GetMapping("/check/{sku}")
     public ResponseEntity<List<Map<String,Object>>> checkForExistingReportSkus(@PathVariable String sku){
 
-        logger.info("Report: Getting potentially existing skus for a given sku: {}", sku);
+        //logger.info("Report: Getting potentially existing skus for a given sku: {}", sku);
 
         List<Map<String,Object>> potentialMatches = db.checkReportForExistingSku(sku);
 

@@ -98,7 +98,7 @@ public class Square {
     }
 
     public String getVariationID(String mpn) throws IOException, InterruptedException {
-        logger.info("Square received request for mpn: {}", mpn);
+        //logger.info("Square received request for mpn: {}", mpn);
 
         String searchBody = """
             {
@@ -120,7 +120,7 @@ public class Square {
             .POST(HttpRequest.BodyPublishers.ofString(searchBody))
             .build();
 
-        logger.info("Square is sending request for inventory object: {}", searchBody);
+        //logger.info("Square is sending request for inventory object: {}", searchBody);
 
         HttpResponse<String> searchResponse = httpClient.send(searchRequest, HttpResponse.BodyHandlers.ofString());
 
@@ -137,7 +137,7 @@ public class Square {
             return null;
         }
 
-        logger.info("Square found sku with object: {}", objects.asText());
+        //logger.info("Square found sku with object: {}", objects.asText());
 
         return objects.get(0).path("id").asText();
     }

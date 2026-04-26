@@ -37,7 +37,7 @@ public class AltController {
             return ResponseEntity.status(400).body("{\"message\": \"mpn invalid or missing\"}");
         }
 
-        logger.info("Alternative received request for getting all mpn: {}, sku: {}", mpn, sku);
+        //logger.info("Alternative received request for getting all mpn: {}, sku: {}", mpn, sku);
 
         return ResponseEntity.ok(db.getAlts(mpn, sku));
     }
@@ -64,7 +64,7 @@ public class AltController {
             return ResponseEntity.status(400).body(response);
         }
 
-        logger.info("Alternative received request for adding a new alternative. mpn: {}, altSku: {}", mpn, alt_sku);
+        //logger.info("Alternative received request for adding a new alternative. mpn: {}, altSku: {}", mpn, alt_sku);
 
         DatabaseItem dbItem = new DatabaseItem(db.getData(mpn));
         dbItem.sku = alt_sku;
@@ -72,7 +72,7 @@ public class AltController {
         if(db.createItem(dbItem, marketplaces)){
             response = String.format("{\"message\": \"%s created\"}", alt_sku);
 
-            logger.info("Alternative successfully created with altSku: {}", alt_sku);
+           // logger.info("Alternative successfully created with altSku: {}", alt_sku);
 
             return ResponseEntity.ok(response);
         }

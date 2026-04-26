@@ -114,7 +114,7 @@ public class DatabaseItem {
         Integer squareQuantity = square.getInventoryCountByMpn(this.mpn);
 
         if (squareQuantity != null && !squareQuantity.equals(this.custom_quantity)) {
-            logger.info("Custom Quantity (Square) Updated: {} -> {}", this.custom_quantity, squareQuantity);
+            //logger.info("Custom Quantity (Square) Updated: {} -> {}", this.custom_quantity, squareQuantity);
             this.custom_quantity = squareQuantity;
             if (!db.patchItem(this.sku, "custom_quantity", squareQuantity)) {
                 logger.warn("Database Item UPDATE failure on attribute = custom_quantity: sku = {}", this.sku);
@@ -129,7 +129,7 @@ public class DatabaseItem {
         }
 
         if (this.square_variation_id == null) {
-            logger.info("Database Item Updating square_variation_id");
+            //logger.info("Database Item Updating square_variation_id");
             try {
                 this.square_variation_id = square.getVariationID(sku);
                 logger.info("Database Item Updated square_variation_id to {}", this.square_variation_id);
@@ -145,7 +145,7 @@ public class DatabaseItem {
     public void updateItemUsingLakes(LakesItem lakesItem, Databasing db) {
 
         if (this.quantity == null || !this.quantity.equals(lakesItem.quantity)) {
-            logger.info("Quantity Updated: {} -> {}", this.quantity, lakesItem.quantity);
+            //logger.info("Quantity Updated: {} -> {}", this.quantity, lakesItem.quantity);
             this.quantity = lakesItem.quantity;
             if (!db.patchItem(this.sku, "quantity", this.quantity)) {
                 logger.warn("Database Item UPDATE failure on attribute = quantity: sku = {}", this.sku);
@@ -153,7 +153,7 @@ public class DatabaseItem {
         }
 
         if (this.lakes_price == null || !this.lakes_price.equals(lakesItem.price)) {
-            logger.info("Price Updated: {} -> {}", this.lakes_price, lakesItem.price);
+            //logger.info("Price Updated: {} -> {}", this.lakes_price, lakesItem.price);
             this.lakes_price = lakesItem.price;
             if (!db.patchItem(this.sku, "lakes_price", this.lakes_price)) {
                 logger.warn("Database Item UPDATE failure on attribute = lakes_price: sku = {}", this.sku);

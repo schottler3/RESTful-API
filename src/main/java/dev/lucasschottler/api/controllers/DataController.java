@@ -249,17 +249,6 @@ public class DataController {
     public ResponseEntity<String> isUpdating() {
         String state = stateService.getState(IS_UPDATING_KEY);
         logger.info("Current State: {}", state);
-
-        try {
-            if(state != null) {
-                Webhook.sendMessage(String.format("Current State: %s", state));
-            } else {
-                Webhook.sendMessage(String.format("Current State is Null!"));
-            }
-        } catch (Exception ex) {
-            logger.error("Failed to send webhook message: {}", ex.getMessage());
-        }
-        
         // Initialize state if null
         if (state == null) {
             stateService.setState(IS_UPDATING_KEY, "false");

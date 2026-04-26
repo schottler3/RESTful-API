@@ -31,7 +31,7 @@ public class Report {
             return null;
         }
 
-        logger.info("Last lakesid from DB: {}", lastId);
+        //logger.info("Last lakesid from DB: {}", lastId);
 
         List<LakesItem> newItems = new ArrayList<>();
         int delta = 1;
@@ -39,7 +39,7 @@ public class Report {
 
         while (concurrentFails < 10) {
             int queryId = lastId + delta;
-            logger.info("Querying lakesid: {}", queryId);
+            //logger.info("Querying lakesid: {}", queryId);
 
             ReportItem rItem = new ReportItem(db.getReport(queryId, "new"), null);
 
@@ -51,7 +51,7 @@ public class Report {
             LakesItem newItem = lakes.getLakesItem(queryId);
 
             if (newItem != null) {
-                logger.info("Found item with lakesid: {}", newItem.lakesid);
+                //logger.info("Found item with lakesid: {}", newItem.lakesid);
                 newItems.add(newItem);
                 db.addReportItem(newItem);
                 concurrentFails = 0;

@@ -100,7 +100,7 @@ public class Ebay {
             ebayService.refreshToken();
         }
         
-        logger.info("Ebay createOrUpdate START: sku: {}", dbItem.sku);
+        //logger.info("Ebay createOrUpdate START: sku: {}", dbItem.sku);
 
         final String API = System.getenv("EBAY_INVENTORY_API_END");
         final String MARKETPLACEID = "EBAY_US";
@@ -113,14 +113,18 @@ public class Ebay {
 
         String description = dbItem.description;
 
-        if(description == null){
-            logger.info("Ebay: Description was found as null! Sku: {}", dbItem.sku);
+        if(description == null || description.isEmpty()){
+            logger.error("Ebay: Skipping sku: {} — description is null or empty", dbItem.sku);
+            Webhook.sendMessage(String.format("Ebay: Missing description for sku: %s, \nhttps://app.lucasschottler.dev/admin/inventory/%s", dbItem.sku, dbItem.sku));
+            return false;
         }
+
+        //logger.info("Ebay: Description length for sku: {}: {}", dbItem.sku, description.length());
 
         Integer custom_quantity = dbItem.custom_quantity;
         int lakes_quantity = dbItem.quantity;
 
-        logger.info("Ebay: Custom_quantity: {} lakes_quantity: {}", custom_quantity, lakes_quantity);
+        //logger.info("Ebay: Custom_quantity: {} lakes_quantity: {}", custom_quantity, lakes_quantity);
 
         int quantity = custom_quantity != null && custom_quantity > 0 
             ? custom_quantity 
@@ -159,6 +163,8 @@ public class Ebay {
             for (String url : dbItem.milwaukee_images.split(",")) {
                 imageUrls.add(url.trim());
             }
+        } else {
+            imageUrls.add(dbItem.lakes_images);
         }
         
         // Build root object
@@ -203,7 +209,9 @@ public class Ebay {
         
         String url = API + "inventory_item/" + dbItem.sku.trim().replace(" ", "%20");
 
-        logger.info("Ebay createOrUpdate 1: sku: {}", dbItem.sku);
+        //logger.info("Ebay createOrUpdate 1: sku: {}", dbItem.sku);
+
+        //logger.info("Ebay createOrUpdate body: {}", jsonBody);
 
         return ebayService.doRequest(() -> HttpRequest.newBuilder()
             .uri(URI.create(url))
@@ -215,39 +223,34 @@ public class Ebay {
             .build(), dbItem.sku);
     }
 
-    private String getOfferId(String sku){
-
+    private String getOfferId(String sku) {
         final String offer_url = System.getenv("EBAY_INVENTORY_API_END") + "offer?sku=" + sku.trim().replace(" ", "%20");
 
-        // Build HTTP request
-        HttpRequest inventoryRequest = HttpRequest.newBuilder()
+        HttpResponse<String> response = doRequestForResponse(() -> HttpRequest.newBuilder()
             .uri(URI.create(offer_url))
             .header("Authorization", "Bearer " + ebayService.globalAccessToken)
             .header("Content-Type", "application/json")
             .header("Content-Language", "en-US")
             .header("X-EBAY-C-MARKETPLACE-ID", "EBAY-US")
             .GET()
-            .build();
+            .build(), sku);
+
+        if (response == null) return null;
 
         try {
-            HttpResponse<String> response = httpClient.send(inventoryRequest, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == 200) {
-                Map<String, Object> responseMap = mapper.readValue(response.body(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
-                if (responseMap.containsKey("offers")) {
-                    Object offersObj = responseMap.get("offers");
-                    if (offersObj instanceof java.util.List && !((java.util.List<?>) offersObj).isEmpty()) {
-                        Object firstOffer = ((java.util.List<?>) offersObj).get(0);
-                        if (firstOffer instanceof Map) {
-                            Object offerId = ((Map<?, ?>) firstOffer).get("offerId");
-                            return offerId != null ? offerId.toString() : null;
-                        }
+            Map<String, Object> responseMap = mapper.readValue(response.body(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+            if (responseMap.containsKey("offers")) {
+                Object offersObj = responseMap.get("offers");
+                if (offersObj instanceof java.util.List && !((java.util.List<?>) offersObj).isEmpty()) {
+                    Object firstOffer = ((java.util.List<?>) offersObj).get(0);
+                    if (firstOffer instanceof Map) {
+                        Object offerId = ((Map<?, ?>) firstOffer).get("offerId");
+                        return offerId != null ? offerId.toString() : null;
                     }
                 }
-            } else {
-                logger.error("Failed to get offerId for sku: {}, status: {}, body: {}", sku, response.statusCode(), response.body());
             }
         } catch (Exception e) {
-            logger.error("Exception while getting offerId for sku: {}, error: {}", sku, e.getMessage());
+            logger.error("Exception parsing offerId for sku: {}, error: {}", sku, e.getMessage());
         }
         return null;
     }
@@ -277,7 +280,7 @@ public class Ebay {
 
         final String inventory_url = API + "inventory_item/" + dbItem.sku.trim().replace(" ", "%20");
 
-        logger.info("InventoryUpdateData: {}", inventoryUpdateData);
+        //logger.info("InventoryUpdateData: {}", inventoryUpdateData);
 
         return ebayService.doRequest(() -> HttpRequest.newBuilder()
             .uri(URI.create(inventory_url))
@@ -305,12 +308,17 @@ public class Ebay {
         offerUpdateNode.put("availableQuantity", dbItem.custom_quantity != null && dbItem.custom_quantity > 0 ? dbItem.custom_quantity : (int) (dbItem.quantity * .66));
 
         price.put("currency", "USD");
-
-        logger.info("Ebay: Using price: {}", dbItem.calculated_price);
-
+        //logger.info("Ebay: Using price: {}", dbItem.calculated_price);
         price.put("value", dbItem.calculated_price);
 
-        final String offer_url = API + "offer/" +  ebayService.getOfferId(dbItem.sku.trim().replace(" ", "%20"));
+        String offerId = ebayService.getOfferId(dbItem.sku.trim().replace(" ", "%20"));
+
+        if (offerId == null) {
+            logger.error("Ebay: Could not retrieve offerId for sku: {}, aborting updateOffer", dbItem.sku);
+            return false;
+        }
+
+        final String offer_url = API + "offer/" + offerId;
 
         return ebayService.doRequest(() -> HttpRequest.newBuilder()
             .uri(URI.create(offer_url))
@@ -329,51 +337,153 @@ public class Ebay {
         for (int i = 0; i < max_retries; i++) {
             HttpRequest request = requestSupplier.get();
 
-            logger.info("Ebay Data PUT ATTEMPT: sku: {}, attempt: {}", sku, i + 1);
+            //logger.info("Ebay Data PUT ATTEMPT: sku: {}, attempt: {}", sku, i + 1);
             HttpResponse<String> response = null;
 
             try {
                 response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-                logger.info("Ebay Data PUT FINISHED: sku: {}", sku);
+                //logger.info("Ebay Data PUT FINISHED: sku: {}", sku);
             } catch (Exception e) {
                 logger.error("Ebay Data PUT EXCEPTION: sku: {}, attempt: {}, error: {}", sku, i + 1, e.getMessage());
             }
 
             if(response != null){
-                if (response.statusCode() == 204 || response.statusCode() == 200) {
-                    logger.info("Ebay Data PUT SUCCESS: sku: {}", sku);
-                    return true;
+
+                int status = response.statusCode();
+
+                switch(status){
+                    case 200:
+                    case 204:
+                        return true;
+                    case 400:
+                        String body = response.body();
+                        if (body.contains("25007")) {
+                            logger.warn("Ebay: Fulfillment policy violation for sku: {}, body: {}", sku, body);
+                            Webhook.sendFulfillmentMessage(String.format("Ebay: Fulfillment policy violation (check shipping policy/weight): sku: %s, body: %s, \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, body, sku));
+                        } else {
+                            logger.warn("Ebay: Item has missing data! sku: {}, body: {}", sku, body);
+                            Webhook.sendMessage(String.format("Ebay: Missing data sku: %s, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, body, sku));
+                        }
+                        return false;
+                    case 401:
+                        refreshToken();
+                        continue;
+                    case 404:
+                        logger.warn("Ebay: 404 not found, sku: {}", sku);
+                        return false;
+                    case 422:
+                        logger.error("Ebay: Invalid request data, sku: {}, body: {}", sku, response.body());
+                        Webhook.sendMessage(String.format("Ebay: 422 sku: %s, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, response.body(), sku));
+                        return false;
+                    case 429:
+                        try {
+                            String retryAfter = response.headers().firstValue("Retry-After").orElse(null);
+                            long waitMs = retryAfter != null
+                                ? Long.parseLong(retryAfter) * 1000
+                                : (long)(Math.pow(2, i) * 1000);
+                            logger.warn("Ebay: Rate limited, waiting {}ms. sku: {}", waitMs, sku);
+                            Thread.sleep(waitMs);
+                        } catch (Exception ex) {
+                            logger.error("Ebay: Sleep failed: {}", ex.getMessage());
+                        }
+                        continue;
+                    default:
+                        if (status >= 500) {
+                            logger.error("Ebay: Server error, will retry. sku: {}, status: {}, body: {}", sku, status, response.body());
+                            double wait = Math.pow(2, i) + Math.random();
+                            try {
+                                Thread.sleep((long)(wait * 1000));
+                            } catch (InterruptedException ie) {
+                                Thread.currentThread().interrupt();
+                                return false;
+                            }
+                            continue;
+                        }
+                        logger.error("Ebay: Unhandled client error, not retrying. sku: {}, status: {}, body: {}", sku, status, response.body());
+                        Webhook.sendMessage(String.format("Ebay: Unhandled client error, not retrying. sku: %s, status: %d, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, status, response.body(), sku));
+                        return false;
                 }
-
-                logger.error("Ebay Data PUT ERROR: sku: {}, status: {}, attempt: {}, body: {}", sku, response.statusCode(), i + 1, response.body());
-
-                if (response.statusCode() == 401) {
-                    refreshToken();
-                    continue;
-                }
-
-                if (response.statusCode() >= 400 && response.statusCode() < 500) {
-                    logger.error("Client error: sku: {}, status: {}", sku, response.statusCode());
-                }
-            }
-
-            double wait = Math.pow(2, i) + Math.random();
-            try {
-                Thread.sleep((long)(wait * 1000));
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-                return false;
             }
         }
 
         logger.info("Ebay: Failed poison!: sku: {}, attempt: {}", sku, max_retries);
-
-        try {
-            Webhook.sendMessage(String.format("Ebay: Failed poison!: sku: %s, attempt: %d", sku, max_retries));
-        } catch (Exception e) {
-            logger.error("Failed to send webhook message: {}", e.getMessage());
-        }
+        Webhook.sendMessage(String.format("Ebay: Failed poison!: sku: %s, attempt: %d, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, max_retries, sku));
 
         return false;
+    }
+
+    private HttpResponse<String> doRequestForResponse(java.util.function.Supplier<HttpRequest> requestSupplier, String sku) {
+        int max_retries = 3;
+
+        for (int i = 0; i < max_retries; i++) {
+            HttpRequest request = requestSupplier.get();
+            HttpResponse<String> response = null;
+
+            try {
+                response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            } catch (Exception e) {
+                logger.error("Ebay GET EXCEPTION: sku: {}, attempt: {}, error: {}", sku, i + 1, e.getMessage());
+                continue;
+            }
+
+            if (response != null) {
+                int status = response.statusCode();
+
+                switch (status) {
+                    case 200:
+                    case 204:
+                        return response;
+                    case 400:
+                        String body = response.body();
+                        if (body.contains("25020")) {
+                            logger.warn("Ebay: Fulfillment policy violation for sku: {}, body: {}", sku, body);
+                            Webhook.sendFulfillmentMessage(String.format("Ebay: Fulfillment policy violation (check shipping policy/weight): sku: %s, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, body, sku));
+                        } else {
+                            logger.warn("Ebay: Item has missing data! sku: {}, body: {}", sku, body);
+                            Webhook.sendMessage(String.format("Ebay: Missing data sku: %s, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, body, sku));
+                        }
+                        return null;
+                    case 401:
+                        refreshToken();
+                        continue;
+                    case 404:
+                        logger.warn("Ebay: 404 not found, sku: {}", sku);
+                        return null;
+                    case 422:
+                        logger.error("Ebay: Invalid request data, sku: {}, body: {}", sku, response.body());
+                        Webhook.sendMessage(String.format("Ebay: 422 sku: %s, body: %s", sku, response.body()));
+                        return null;
+                    case 429:
+                        try {
+                            String retryAfter = response.headers().firstValue("Retry-After").orElse(null);
+                            long waitMs = retryAfter != null
+                                ? Long.parseLong(retryAfter) * 1000
+                                : (long)(Math.pow(2, i) * 1000);
+                            logger.warn("Ebay: Rate limited, waiting {}ms. sku: {}", waitMs, sku);
+                            Thread.sleep(waitMs);
+                        } catch (Exception ex) {
+                            logger.error("Ebay: Sleep failed: {}", ex.getMessage());
+                        }
+                        continue;
+                    default:
+                        if (status >= 500) {
+                            logger.error("Ebay: Server error, will retry. sku: {}, status: {}, body: {}", sku, status, response.body());
+                            double wait = Math.pow(2, i) + Math.random();
+                            try {
+                                Thread.sleep((long)(wait * 1000));
+                            } catch (InterruptedException ie) {
+                                Thread.currentThread().interrupt();
+                                return null;
+                            }
+                            continue;
+                        }
+                        logger.error("Ebay: Unhandled client error, not retrying. sku: {}, status: {}, body: {}", sku, status, response.body());
+                        Webhook.sendMessage(String.format("Ebay: Unhandled client error, not retrying. sku: %s, status: %d, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, status, response.body(), sku));
+                        return null;
+                }
+            }
+        }
+        Webhook.sendMessage(String.format("Ebay: Failed poison!: sku: %s, attempt: %d, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, max_retries, sku));
+        return null;
     }
 }
