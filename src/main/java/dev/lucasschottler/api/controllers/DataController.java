@@ -24,7 +24,6 @@ import dev.lucasschottler.database.DatabaseItem;
 import dev.lucasschottler.database.Databasing;
 import dev.lucasschottler.update.Amazon;
 import dev.lucasschottler.api.StateService;
-import dev.lucasschottler.api.Webhook;
 import dev.lucasschottler.api.square.Square;
 
 @RestController
@@ -51,7 +50,7 @@ public class DataController {
         @RequestParam(required = false) String keywords,
         @RequestParam(required = false) String time
     ) {
-        logger.info("Received request -  Limit: " + limit + ", Keywords: " + keywords);
+        //logger.info("Received request -  Limit: " + limit + ", Keywords: " + keywords);
 
         int resultLimit = 20;
         
@@ -176,7 +175,7 @@ public class DataController {
 
     @GetMapping("/item/{sku}")
     public ResponseEntity<Map<String, Object>> getItem(@PathVariable String sku) {
-        logger.info("Data: Getting item data for sku: {}", sku);
+       //logger.info("Data: Getting item data for sku: {}", sku);
 
         try {
             Map<String, Object> item = db.getData(sku);
@@ -185,7 +184,7 @@ public class DataController {
                 return ResponseEntity.notFound().build();
             }
 
-            logger.info("Data: item: {}", item);
+            //logger.info("Data: item: {}", item);
 
             return ResponseEntity.ok(item);
 
@@ -248,7 +247,7 @@ public class DataController {
     @GetMapping({"/update"})
     public ResponseEntity<String> isUpdating() {
         String state = stateService.getState(IS_UPDATING_KEY);
-        logger.info("Current State: {}", state);
+        //logger.info("Current State: {}", state);
         // Initialize state if null
         if (state == null) {
             stateService.setState(IS_UPDATING_KEY, "false");

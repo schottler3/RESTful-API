@@ -39,7 +39,7 @@ class BomController {
             return ResponseEntity.badRequest().body(Map.of("error", "Request body is missing or empty"));
         }
 
-        logger.info("Received PUT request with {} bom items", requestBody.size());
+        //logger.info("Received PUT request with {} bom items", requestBody.size());
 
         List<Map<String, Object>> failures = new java.util.ArrayList<>();
 
@@ -79,7 +79,7 @@ class BomController {
                     continue;
                 }
                 
-                logger.info("Attempt on bom addition - parent_id: {}, child_id: {}, quantity: {}", parent_sku, child_sku, quantity);
+                //logger.info("Attempt on bom addition - parent_id: {}, child_id: {}, quantity: {}", parent_sku, child_sku, quantity);
                 if(db.addBom(parent_sku, child_sku, quantity)){
                     logger.info("Success on bom addition - parent_id: {}, child_id: {}, quantity: {}", parent_sku, child_sku, quantity);
                 } else {

@@ -141,8 +141,8 @@ public class Lakes {
             HttpRequest request = requestBuilder.build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-            logger.info("Response status: " + response.statusCode());
-            logger.info("Response body: " + response.body());
+            //logger.info("Response status: " + response.statusCode());
+            //logger.info("Response body: " + response.body());
 
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode jsonNode = objectMapper.readTree(response.body());
