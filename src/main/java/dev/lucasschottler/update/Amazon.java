@@ -434,7 +434,7 @@ public class Amazon {
         }
 
         logger.error("Amazon: Failed poison!: sku: {}", sku);
-        Webhook.sendMessage(String.format("Amazon: Failed poison!: sku: %s, attempt: %d, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, max_retries, sku));
+        Webhook.sendMessage(String.format("Amazon: Failed poison!: sku: %s, attempt: %d \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, max_retries, sku));
         return null;
     }
 

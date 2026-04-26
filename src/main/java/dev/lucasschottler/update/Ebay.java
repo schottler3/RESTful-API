@@ -440,7 +440,7 @@ public class Ebay {
                             Webhook.sendFulfillmentMessage(String.format("Ebay: Fulfillment policy violation (check shipping policy/weight): sku: %s, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, body, sku));
                         } else {
                             logger.warn("Ebay: Item has missing data! sku: {}, body: {}", sku, body);
-                            Webhook.sendMessage(String.format("Ebay: Missing data sku: %s, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, body, sku));
+                            Webhook.sendMessage(String.format("Ebay: Missing data sku: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, body, sku));
                         }
                         return null;
                     case 401:
@@ -483,7 +483,7 @@ public class Ebay {
                 }
             }
         }
-        Webhook.sendMessage(String.format("Ebay: Failed poison!: sku: %s, attempt: %d, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, max_retries, sku));
+        Webhook.sendMessage(String.format("Ebay: Failed poison!: sku: %s, attempt: %d \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, max_retries, sku));
         return null;
     }
 }
