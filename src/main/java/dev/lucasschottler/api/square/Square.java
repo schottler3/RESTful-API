@@ -33,7 +33,7 @@ public class Square {
         }
 
         if (variationId == null) {
-            logger.info("Square was unable to return the variation ID! mpn: {}", mpn);
+            //logger.info("Square was unable to return the variation ID! mpn: {}", mpn);
             return null;
         }
 
@@ -65,20 +65,20 @@ public class Square {
 
     private Integer extractQuantityFromInventoryObject(JsonNode inventoryObject, String identifier) {
         if (inventoryObject == null) {
-            logger.info("Square couldn't get the inventory object for: {}", identifier);
+            //logger.info("Square couldn't get the inventory object for: {}", identifier);
             return null;
         }
 
         JsonNode counts = inventoryObject.path("counts");
 
         if (counts.isEmpty()) {
-            logger.info("Square returned no counts for: {}", identifier);
+            //logger.info("Square returned no counts for: {}", identifier);
             return null;
         }
 
         Integer inventoryCount = Integer.parseInt(counts.get(0).path("quantity").asText());
 
-        logger.info("Square found quantity {} for {}", inventoryCount, identifier);
+        //logger.info("Square found quantity {} for {}", inventoryCount, identifier);
 
         return inventoryCount;
     }
@@ -133,7 +133,7 @@ public class Square {
         JsonNode objects = searchJson.path("objects");
 
         if (objects.isEmpty()) {
-            logger.info("Square found no SKU: {}", mpn);
+           // logger.info("Square found no SKU: {}", mpn);
             return null;
         }
 

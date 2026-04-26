@@ -68,7 +68,7 @@ public class Actions {
         //logger.info("Actions: Item data retrieved for {}", sku);
 
         if(item == null){
-            logger.warn("Actions failed to update sku: {} due to no results", sku);
+            logger.warn("Actions: failed to update item sku: {} due to no results", sku);
             return null;
         }
 
@@ -135,17 +135,21 @@ public class Actions {
             return true;
         }
 
+        boolean amazonSuccess = false;
+        boolean ebaySuccess = false;
+
         if(dbItem.marketplaces.contains("amazon")){
             try{
                 //logger.info("Actions update pushing to amazon, sku: {}", dbItem.sku);
                 if(amazon.updateItem(dbItem)){
                     db.updateLastSuccess("amazon", sku);
+                    amazonSuccess = true;
                 } else {
                     logger.info("Actions: amazon failure to update item, sku: {}", dbItem.sku);
                 }
                 //logger.info("Actions update FINISHED pushing to amazon, sku: {}", dbItem.sku);
             } catch (AmazonNotFoundException e){
-                logger.info("Actions: Amazon item not found Exception: {}", e);
+                //logger.info("Actions: Amazon item not found Exception:", e);
             }
             
         }
@@ -162,6 +166,7 @@ public class Actions {
                 : Ebay.updateItem(dbItem);
 
             if (ebayCreateOrUpdate){
+                
                 //logger.info("Actions update SUCCESS updating inventory to ebay, sku: {}", dbItem.sku);
                 successOnItem = true;
             } else {
@@ -178,12 +183,13 @@ public class Actions {
 
             if(successOnItem && successOnOffer){
                 db.updateLastSuccess("ebay", sku);
+                ebaySuccess = true;
             } else {
                 logger.warn("Actions: Failure to update ebay offer or item, sku: {}", dbItem.sku);
-            }
+            }   
         }
         
-        return true;
+        return ebaySuccess && amazonSuccess;
     }
 
     public void updateInventory() {
@@ -246,12 +252,12 @@ public class Actions {
             if (dbItem.marketplaces.contains("amazon")) {
                 try{
                     if (!amazon.updateItem(dbItem)) {
-                        logger.info("Actions: Failure to update amazon item in process!: {}", dbItem.sku);
+                        //logger.info("Actions: Failure to update amazon item in process!: {}", dbItem.sku);
                     } else {
                         db.updateLastSuccess("amazon", dbItem.sku);
                     }
                 } catch (AmazonNotFoundException e){
-                    logger.info("Actions: Amazon item was not found exception!: {}", e);
+                    //logger.info("Actions: Amazon item was not found exception!: {}", e);
                 }
             }
 
@@ -273,7 +279,7 @@ public class Actions {
 
             //logger.info("Actions completed processing sku: {}", dbItem.sku);
         } catch (Exception e) {
-            logger.error("Error processing item: {}", item, e);
+            logger.error("Actions: Exception processing item raw: {}", item, e);
         }
     }
 

@@ -88,6 +88,8 @@ services:
       EBAY_FULFILLMENT_DROP_ECONOMY_POLICY: ${EBAY_FULFILLMENT_DROP_ECONOMY_POLICY}
       EBAY_FULFILLMENT_STOCK_POLICY: ${EBAY_FULFILLMENT_STOCK_POLICY}
       SQUARE_PERSONAL_ACCESS_TOKEN: ${SQUARE_PERSONAL_ACCESS_TOKEN}
+      WEBHOOK_URL: ${WEBHOOK_URL}
+      FULFILLMENT_WEBHOOK_URL: ${FULFILLMENT_WEBHOOK_URL}
     expose:
       - "8080"
     depends_on:
@@ -101,10 +103,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.5'
-          memory: 1.5G
+          cpus: '2'
+          memory: 4G
         reservations:
-          memory: 512M
+          memory: 2G
     logging:
       driver: "json-file"
       options:

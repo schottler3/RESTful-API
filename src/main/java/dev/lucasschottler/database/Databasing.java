@@ -45,7 +45,7 @@ public class Databasing {
         "bulk_split_price",
         // String columns
         "type", "mpn", "title", "description", "upc", "sku",
-        "milwaukee_images", "lakes_images", "barcode_title", "marketplaces"
+        "milwaukee_images", "lakes_images", "barcode_title", "marketplaces", "square_variation_id"
     );
 
     private static final Set<String> allowedMarketplaces = Set.of("amazon", "ebay");

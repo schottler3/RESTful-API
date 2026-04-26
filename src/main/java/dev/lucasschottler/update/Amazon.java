@@ -130,7 +130,7 @@ public class Amazon {
         //logger.info("Amazon updateItem getItem returned: {}", get_response.statusCode());
 
         if(get_response.statusCode() == 404){
-            logger.warn("Amazon item not found or doesn't exist. sku: {}", dbItem.sku);
+            //logger.warn("Amazon item not found or doesn't exist. sku: {}", dbItem.sku);
 
             /**TODO:
              * Amazon opportunities report
@@ -159,15 +159,18 @@ public class Amazon {
         if (itemData.has("productType")) {
             productType = itemData.get("productType").asText();
             //logger.info("Amazon productType for sku {}: {}", dbItem.sku, productType);
-        } else {
+        }
+        /* 
+        else {
             logger.warn("Amazon productType not found in response for sku: {}, using default", dbItem.sku);
         }
+        */
 
         ObjectNode currentAttributes = null;
         if (itemData.has("attributes") && itemData.get("attributes").isObject()) {
             currentAttributes = (ObjectNode) itemData.get("attributes");
         } else {
-            logger.error("Amazon itemData missing 'attributes' field, sku: {}", dbItem.sku);
+            logger.error("Amazon itemData missing 'attributes' field, sku: {}, itemData: {}", dbItem.sku, itemData.toString());
 
             Webhook.sendMessage(String.format("Amazon itemData missing 'attributes' field, sku: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", dbItem.sku, dbItem.sku));
 
@@ -310,8 +313,16 @@ public class Amazon {
             .method("PATCH", HttpRequest.BodyPublishers.ofString(requestBody.toString()))
             .build(), dbItem.sku);
 
-        if(patch_response == null || (patch_response.statusCode() != 200 && patch_response.statusCode() != 204)) {
-            logger.error("Amazon PATCH failed, sku: {}, status: {}", dbItem.sku, patch_response != null ? patch_response.statusCode() : "null");
+        if (patch_response == null) {
+            logger.error("Amazon PATCH got null response, sku: {}", dbItem.sku);
+
+            Webhook.sendMessage(String.format("Amazon: Received a null patch response! Sku: %s", dbItem.sku));
+
+            return false;
+        }
+        if (patch_response.statusCode() != 200 && patch_response.statusCode() != 204) {
+            logger.error("Amazon PATCH failed, sku: {}, status: {}", dbItem.sku, patch_response.statusCode());
+            Webhook.sendMessage(String.format("Amazon: Failure on patch response! Sku: %s, status: %d", dbItem.sku, patch_response.statusCode()));
             return false;
         }
 
@@ -382,7 +393,7 @@ public class Amazon {
                 switch (status) {
                     case 200:
                     case 204:
-                        logger.info("Amazon Request SUCCESS: sku: {}", sku);
+                        //logger.info("Amazon Request SUCCESS: sku: {}", sku);
                         return response;
                     case 400:
                         logger.warn("Amazon: Bad request, sku: {}, body: {}", sku, response.body());
@@ -396,7 +407,7 @@ public class Amazon {
                         Webhook.sendMessage(String.format("Amazon: 403 sku: %s, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, response.body(), sku));
                         return null;
                     case 404:
-                        logger.warn("Amazon: 404 not found, sku: {}", sku);
+                        //logger.warn("Amazon: 404 not found, sku: {}", sku);
                         return response; // returned so caller can handle (e.g. item doesn't exist yet)
                     case 422:
                         logger.error("Amazon: Invalid request data, sku: {}, body: {}", sku, response.body());

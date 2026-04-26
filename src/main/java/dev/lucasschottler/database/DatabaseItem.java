@@ -132,7 +132,7 @@ public class DatabaseItem {
             //logger.info("Database Item Updating square_variation_id");
             try {
                 this.square_variation_id = square.getVariationID(sku);
-                logger.info("Database Item Updated square_variation_id to {}", this.square_variation_id);
+                //logger.info("Database Item Updated square_variation_id to {}", this.square_variation_id);
                 if (!db.patchItem(this.sku, "square_variation_id", this.square_variation_id)) {
                     logger.warn("Database Item UPDATE failure on attribute = square_variation_id: sku = {}", this.sku);
                 }

@@ -167,7 +167,7 @@ public class DataController {
                 return ResponseEntity.status(HttpStatus.MULTI_STATUS).body(failures);
             }
         } catch (Exception e) {
-            logger.error("Error processing PATCH request", e);
+            logger.error("Data: Exception processing PATCH request: {}", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body("{\"error\":\"Internal server error\"}");
         }
