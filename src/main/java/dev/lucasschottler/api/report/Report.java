@@ -24,42 +24,42 @@ public class Report {
     }
 
     public List<LakesItem> getNewItems() {
-        int lastId = db.getLastLakesId();
-
-        if(lastId <= 0){
-            logger.info("Lakes: the smallest new index was not found...");
-            return null;
-        }
-
-        //logger.info("Last lakesid from DB: {}", lastId);
 
         List<LakesItem> newItems = new ArrayList<>();
-        int delta = 1;
-        int concurrentFails = 0;
+        
+        Integer[] lakesIds = db.getAllLakesIdsInAsc();
 
-        while (concurrentFails < 10) {
-            int queryId = lastId + delta;
-            //logger.info("Querying lakesid: {}", queryId);
+        for(int i = 1; i < lakesIds.length; i++){
 
-            ReportItem rItem = new ReportItem(db.getReport(queryId, "new"), null);
+            int diff = lakesIds[i] - lakesIds[i-1];
 
-            if(rItem.lakesid != null){
-                delta++;
-                continue;
+            logger.info("Report: Current lakesid: {}", lakesIds[i-1]);
+
+            if(diff > 0){
+                for(int j = 1; j < diff; j++){
+                    int lakesIdToAdd = lakesIds[i-1] + j;
+                    logger.info("Report: Requesting lakesid: {}", lakesIdToAdd);
+                    LakesItem lakesItem = lakes.getLakesItem(lakesIdToAdd);
+                    if(lakesItem != null){
+                        db.addReportNewItem(lakesItem);
+                        newItems.add(lakesItem);
+                    }
+                }
             }
-            
-            LakesItem newItem = lakes.getLakesItem(queryId);
 
-            if (newItem != null) {
-                //logger.info("Found item with lakesid: {}", newItem.lakesid);
-                newItems.add(newItem);
-                db.addReportNewItem(newItem);
-                concurrentFails = 0;
+        }
+
+        int concurrentFails = 0;
+        int currentId = lakesIds[lakesIds.length];
+
+        while(concurrentFails < 20){
+            LakesItem lakesItem = lakes.getLakesItem(currentId++);
+            if(lakesItem != null){
+                db.addReportNewItem(lakesItem);
+                newItems.add(lakesItem);
             } else {
-                logger.info("No item found for lakesid: {}, stopping loop", queryId);
                 concurrentFails++;
             }
-            delta++;
         }
 
         logger.info("Total new items found: {}", newItems.size());

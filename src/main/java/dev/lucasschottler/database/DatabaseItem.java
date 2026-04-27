@@ -230,8 +230,6 @@ public class DatabaseItem {
                 logger.warn("Database Item UPDATE failure on attribute = lakes_images: sku = {}", this.sku);
             }
         }
-
-        updateItem(db);
     }
 
     public void setPricingFields(Double price, Databasing db){

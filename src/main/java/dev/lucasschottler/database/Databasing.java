@@ -58,42 +58,17 @@ public class Databasing {
     
     public java.util.Map<String, Object> getData(String sku) {
         String sql = "SELECT * FROM superior WHERE sku = ? LIMIT 1";
-        return jdbcTemplate.queryForMap(sql, sku);
+        try{
+            return jdbcTemplate.queryForMap(sql, sku);
+        } catch (Exception e){
+            logger.info("Databasing: Could not find superior item with sku: {}", sku);
+            return null;
+        }
     }
 
     public java.util.Map<String, Object> getData(int lakesid) {
         String sql = "SELECT * FROM superior WHERE lakesid LIKE ?";
         return jdbcTemplate.queryForMap(sql, lakesid);
-    }
-
-    public int getLastLakesId() {
-        String superiorSQL = "SELECT lakesid FROM superior ORDER BY lakesid DESC LIMIT 1";
-        String reportSQL = "SELECT lakesid FROM report ORDER BY lakesid ASC LIMIT 1";
-
-        Integer lakesid = null;
-        Integer reportLakesId = null;
-
-        try {
-            lakesid = jdbcTemplate.queryForObject(superiorSQL, Integer.class);
-        } catch (EmptyResultDataAccessException e) {
-            logger.info("No rows in superior table");
-        }
-
-        try {
-            reportLakesId = jdbcTemplate.queryForObject(reportSQL, Integer.class);
-        } catch (EmptyResultDataAccessException e) {
-            logger.info("No rows in report table");
-        }
-
-        if (lakesid != null && reportLakesId != null) {
-            return Math.min(lakesid, reportLakesId);
-        } else if (lakesid != null) {
-            return lakesid;
-        } else if (reportLakesId != null) {
-            return reportLakesId;
-        } else {
-            return -1;
-        }
     }
 
     public List<Map<String, Object>> queryDatabase(String query, int limit, String time) {
@@ -444,4 +419,10 @@ public class Databasing {
         return jdbcTemplate.update(sql, sku) > 0;
     }
 
+    public Integer[] getAllLakesIdsInAsc(){
+        String sql = "SELECT lakesid FROM superior ORDER BY lakesid ASC";
+
+        List<Integer> lakesIds = jdbcTemplate.queryForList(sql, Integer.class);
+        return lakesIds.toArray(new Integer[0]);
+    }
 }

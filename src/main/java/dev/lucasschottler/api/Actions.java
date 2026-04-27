@@ -47,10 +47,7 @@ public class Actions {
             return false;
         }
 
-        //logger.info("Actions starting update on item: {}", item);
         DatabaseItem dbItem = new DatabaseItem(item);
-
-        //logger.info("Actions update resolved dbItem for sku: {}", dbItem.sku);
 
         LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
 
@@ -58,8 +55,6 @@ public class Actions {
             db.addReportDiscItem(dbItem);
             return false;
         }
-
-        //logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
         
         db.resetItem(lakesItem);
 
@@ -68,29 +63,28 @@ public class Actions {
 
     public DatabaseItem updateItem(String sku){
 
-        //logger.info("Actions: Getting item data for updateItem... {}", sku);
         Map<String, Object> item = db.getData(sku);
-        //logger.info("Actions: Item data retrieved for {}", sku);
 
         if(item == null){
-            logger.warn("Actions: failed to update item sku: {} due to no results", sku);
+            logger.warn("Actions: failed to update item sku: {} No results!", sku);
             return null;
         }
 
-        Double bulkSplitPrice = getBulkSplitPrice(sku);
-
-        //logger.info("Actions starting update on item: {}", item);
-        DatabaseItem dbItem = new DatabaseItem(item);
-        //logger.info("Actions update resolved dbItem for sku: {}", dbItem.sku);
+        DatabaseItem dbItem = new DatabaseItem(item); 
+        
+        List<Map<String,Object>> bom = db.getBom(dbItem.sku);
+        Double bulkSplitPrice = getBulkSplitPrice(bom);
 
         if(bulkSplitPrice != null && bulkSplitPrice > 0){
             dbItem.setPricingFields(bulkSplitPrice, db);
         }
 
         Integer lakesid = dbItem.lakesid;
+
         if(lakesid != null){
+            //Update the current data based off of lakes data
+
             LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
-            //logger.info("Actions update resolved lakesItem for sku: {}", lakesItem.sku);
 
             if(lakesItem == null){
                 db.addReportDiscItem(dbItem);
@@ -98,54 +92,40 @@ public class Actions {
             }
 
             dbItem.updateItemUsingLakes(lakesItem, db);
-            //logger.info("Actions resolved updateItemUsingLakes on database for sku: {}", dbItem.sku);
-        } else {
-            List<Map<String,Object>> bom = db.getBom(dbItem.sku);
 
-            if(bom.size() > 0){
+        } else {
+            // if there is no associated lakesid then attempt to use the child for data
+
+            if(bom != null && bom.size() > 0){
                 String child_sku = (String) bom.get(0).get("child_sku");
 
                 if(child_sku != null){
                     DatabaseItem dbChildItem = new DatabaseItem(db.getData(child_sku));
 
-                    LakesItem lakesChildItem = lakes.getLakesItem(dbChildItem.lakesid);
-                    //logger.info("Actions update resolved lakesItem for sku: {} using dependency lakesid", lakesChildItem.sku);
+                    if(dbChildItem.lakesid != null){
+                        LakesItem lakesChildItem = lakes.getLakesItem(dbChildItem.lakesid);
 
-                    if(lakesChildItem == null){
-                        db.addReportDiscItem(dbItem);
-                    } else {
-                        dbItem.updateItemUsingLakes(lakesChildItem, db);
-                        //logger.info("Actions resolved updateItemUsingLakes on database for sku: {} using dependency lakesid", dbItem.sku);
+                        if(lakesChildItem == null){
+                            db.addReportDiscItem(dbItem);
+                        } else {
+                            dbItem.updateItemUsingLakes(lakesChildItem, db);
+                        }
+
                     }
                 }
             }
         }
 
-        if(dbItem.square_variation_id != null){
-
-            Integer square_quantity = square.getInventoryCountByVariationID(dbItem.square_variation_id);
-
-            //logger.info("Actions: Square quantity found: {}", square_quantity);
-
-            if(square_quantity != null){
-                int quantity = square.getInventoryCountByVariationID(dbItem.square_variation_id);
-                db.updateCustomQuantity(dbItem.sku, quantity);
-            }
-        }
+        dbItem.updateItem(db);
 
         return dbItem;
     }
 
     public boolean updateAndPushItem(String sku){
 
-        //logger.info("Actions: calling updateItem... {}", sku);
         DatabaseItem dbItem = updateItem(sku);
-        //logger.info("Actions: success! Got dbItem {}", sku);
 
-        //logger.info("Actions: Recieved object: {}", dbItem.toString());
-
-        if(dbItem.marketplaces == null || dbItem.marketplaces.equals("")){
-            //logger.info("Actions update and push found no marketplaces!, sku: {}", dbItem.sku);
+        if(dbItem.marketplaces == null || dbItem.marketplaces.isBlank()){
             return true;
         }
 
@@ -154,62 +134,37 @@ public class Actions {
 
         if(dbItem.marketplaces.contains("amazon")){
             try{
-                //logger.info("Actions update pushing to amazon, sku: {}", dbItem.sku);
                 if(amazon.updateItem(dbItem)){
                     db.updateLastSuccess("amazon", sku);
                     amazonSuccess = true;
                 } else {
                     logger.info("Actions: amazon failure to update item, sku: {}", dbItem.sku);
                 }
-                //logger.info("Actions update FINISHED pushing to amazon, sku: {}", dbItem.sku);
             } catch (AmazonNotFoundException e){
-                //logger.info("Actions: Amazon item not found Exception:", e);
+
             }
             
         }
 
         if(dbItem.marketplaces.contains("ebay")){
 
-            boolean successOnItem = false;
-            boolean successOnOffer = false;
-
-            //logger.info("Actions update updating inventory to ebay, sku: {}", dbItem.sku);
-
-            boolean ebayCreateOrUpdate = dbItem.last_ebay == null 
+            boolean successOnItem = dbItem.last_ebay == null 
                 ? Ebay.createOrUpdateItem(dbItem) 
                 : Ebay.updateItem(dbItem);
 
-            if (ebayCreateOrUpdate){
-                
-                //logger.info("Actions update SUCCESS updating inventory to ebay, sku: {}", dbItem.sku);
-                successOnItem = true;
-            } else {
-                logger.info("Actions: createOrUpdate FAILURE updating inventory to ebay, sku: {}", dbItem.sku);
-            }
-
-            //logger.info("Actions update offer to ebay, sku: {}", dbItem.sku);
-            if(Ebay.updateOffer(dbItem)){
-                //logger.info("Actions update SUCCESS offer to ebay, sku: {}", dbItem.sku);
-                successOnOffer = true;
-            } else {
-                logger.info("Actions: updateOffer FAILURE updating inventory to ebay, sku: {}", dbItem.sku);
-            }
+            boolean successOnOffer = Ebay.updateOffer(dbItem);
 
             if(successOnItem && successOnOffer){
-                db.updateLastSuccess("ebay", sku);
+                ebaySuccess = db.updateLastSuccess("ebay", sku);
                 ebaySuccess = true;
-            } else {
-                logger.warn("Actions: Failure to update ebay offer or item, sku: {}", dbItem.sku);
-            }   
+            }
         }
         
         return ebaySuccess && amazonSuccess;
     }
 
     public void updateInventory() {
-        //logger.info("Actions getting database...");
         List<Map<String, Object>> data = db.queryDatabase(null, 12000, null);
-        //logger.info("Actions received database with {} items", data.size());
 
         if (data.isEmpty()) {
             logger.warn("Actions database data is empty!");
@@ -243,86 +198,32 @@ public class Actions {
 
     private void processItem(Map<String, Object> item) {
         try {
-            //logger.info("Actions starting on item: {}", item);
             DatabaseItem dbItem = new DatabaseItem(item);
 
-            LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
-
-            if(lakesItem == null){
-                db.addReportDiscItem(dbItem);
-            } else {
-                dbItem.updateItemUsingLakes(lakesItem, db);
-            }
-            
             if (dbItem.square_variation_id != null) {
                 Integer square_quantity = square.getInventoryCountByVariationID(dbItem.square_variation_id);
-                //logger.info("Actions: Square quantity found: {}", square_quantity);
                 if (square_quantity != null) {
                     db.updateCustomQuantity(dbItem.sku, square_quantity);
                     dbItem.custom_quantity = square_quantity;
                 }
             }
 
-            if (dbItem.marketplaces == null || dbItem.marketplaces.isEmpty()) {
-                //logger.info("Actions: No marketplaces found for sku: {}", dbItem.sku);
-                return;
-            }
+            updateAndPushItem(dbItem.sku);
 
-            if (dbItem.marketplaces.contains("amazon")) {
-                try{
-                    if (!amazon.updateItem(dbItem)) {
-                        //logger.info("Actions: Failure to update amazon item in process!: {}", dbItem.sku);
-                    } else {
-                        db.updateLastSuccess("amazon", dbItem.sku);
-                    }
-                } catch (AmazonNotFoundException e){
-                    //logger.info("Actions: Amazon item was not found exception!: {}", e);
-                }
-            }
-
-            if (dbItem.marketplaces.contains("ebay")) {
-                boolean ebaySuccess = dbItem.last_ebay == null
-                    ? Ebay.createOrUpdateItem(dbItem)
-                    : Ebay.updateItem(dbItem);
-
-                if (ebaySuccess) {
-                    if (Ebay.updateOffer(dbItem)) {
-                        db.updateLastSuccess("ebay", dbItem.sku);
-                    } else {
-                        logger.info("Actions: Failure to update ebay offer in process!: {}", dbItem.sku);
-                    }
-                } else {
-                    logger.info("Actions: Failure to update ebay item in process!: {}", dbItem.sku);
-                }
-            }
-
-            //logger.info("Actions completed processing sku: {}", dbItem.sku);
         } catch (Exception e) {
             logger.error("Actions: Exception processing item raw: {}", item, e);
         }
     }
 
-    public Double getBulkSplitPrice(String sku){
-        logger.info("Actions: Testing for Bom relations...");
-        List<Map<String,Object>> bom = db.getBom(sku);
-
-        logger.info("Actions - Bom: Got the bom for sku: {}, BOM: {}", sku, bom);
-
+    public Double getBulkSplitPrice(List<Map<String,Object>> bom ){
         Double bulkSplitPrice = 0.0;
 
         if(bom != null && !bom.isEmpty()){
 
-            logger.info("Actions: Found bom relations!");
-
             for (Map<String,Object> dependency : bom){
                 String dependency_sku = (String) dependency.get("child_sku");
                 if(dependency_sku != null){
-
-                    logger.info("Actions - Bom: updating item for dependency: {}", dependency_sku);
-
                     updateItem(dependency_sku);
-
-                    logger.info("Actions - Bom: updated and now fetching data again for dependency: {}", dependency_sku);
 
                     Map<String, Object> dependency_data;
 
@@ -333,28 +234,19 @@ public class Actions {
                         continue;
                     }
 
-                    logger.info("Actions - Bom: fetched now parsing prices for dependency: {}", dependency_sku);
-
                     Double lakes_price = ((Number) dependency_data.get("lakes_price")).doubleValue();
                     Double quantity = ((Number) dependency.get("quantity")).doubleValue();
-
-                    logger.info("Actions - Bom: Prices found: lakes: {}, quantity: {}, dependency: {}", lakes_price, quantity, dependency_sku);
 
                     if(quantity != null){
                         if(lakes_price != null && lakes_price > 0){
                             bulkSplitPrice += lakes_price * quantity;
                         }
-
-                        logger.info("Actions - Bom: updating bulkSplitPrice: {} for parent: {}", bulkSplitPrice, sku);
                     }
-                    
                 }
             }
         } else {
             return null;
         }
-
-        logger.info("Actions: final bulkSplitPrice: {}", bulkSplitPrice);
 
         return bulkSplitPrice;
     }
