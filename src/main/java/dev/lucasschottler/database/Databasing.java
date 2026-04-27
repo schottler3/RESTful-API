@@ -208,7 +208,7 @@ public class Databasing {
                 upc, quantity, custom_quantity, sku, milwaukee_images, package_width,
                 package_length, package_height, package_weight, lakes_images,
                 minimum_price, calculated_price, maximum_price, lakes_price,
-                custom_price, fulfillment, square_variation_id, marketplaces, bulk_split_price
+                custom_price, fulfillment, square_variation_id, marketplaces
             ) VALUES (
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
             )

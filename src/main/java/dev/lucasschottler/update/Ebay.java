@@ -344,7 +344,17 @@ public class Ebay {
                 response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
                 //logger.info("Ebay Data PUT FINISHED: sku: {}", sku);
             } catch (Exception e) {
-                logger.error("Ebay Data PUT EXCEPTION: sku: {}, attempt: {}, error: {}", sku, i + 1, e.getMessage());
+                logger.error("Ebay Data PUT EXCEPTION: sku: {}, attempt: {}, error: {}", 
+                    sku, i + 1, e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+                
+                // Backoff before retrying on network errors
+                try {
+                    long waitMs = (long)(Math.pow(2, i) * 1000);
+                    Thread.sleep(waitMs);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
             }
 
             if(response != null){
@@ -407,7 +417,7 @@ public class Ebay {
         }
 
         logger.info("Ebay: Failed poison!: sku: {}, attempt: {}", sku, max_retries);
-        Webhook.sendMessage(String.format("Ebay: Failed poison!: sku: %s, attempt: %d, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, max_retries, sku));
+        Webhook.sendMessage(String.format("Ebay: Failed poison!: sku: %s, attempt: %d \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, max_retries, sku));
 
         return false;
     }
@@ -422,8 +432,17 @@ public class Ebay {
             try {
                 response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             } catch (Exception e) {
-                logger.error("Ebay GET EXCEPTION: sku: {}, attempt: {}, error: {}", sku, i + 1, e.getMessage());
-                continue;
+                logger.error("Ebay Data PUT EXCEPTION: sku: {}, attempt: {}, error: {}", 
+                    sku, i + 1, e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+                
+                // Backoff before retrying on network errors
+                try {
+                    long waitMs = (long)(Math.pow(2, i) * 1000);
+                    Thread.sleep(waitMs);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return null;
+                }
             }
 
             if (response != null) {
