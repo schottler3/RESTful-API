@@ -13,9 +13,11 @@ import dev.lucasschottler.database.DatabaseItem;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 
 @Service
@@ -333,7 +335,6 @@ public class Amazon {
 
     private void refreshToken() {
         try {
-
             String token = System.getenv("AMAZON_TOKEN");
             String clientId = System.getenv("AMAZON_IDENTIFIER");
             String clientSecret = System.getenv("AMAZON_CLIENT_SECRET");
@@ -344,31 +345,34 @@ public class Amazon {
             }
 
             String formData = "grant_type=refresh_token" +
-                "&refresh_token=" + token +
-                "&client_id=" + clientId +
-                "&client_secret=" + clientSecret;
-            
+                "&refresh_token=" + URLEncoder.encode(token, StandardCharsets.UTF_8) +
+                "&client_id=" + URLEncoder.encode(clientId, StandardCharsets.UTF_8) +
+                "&client_secret=" + URLEncoder.encode(clientSecret, StandardCharsets.UTF_8);
+
             HttpResponse<String> response = doRequest(() -> HttpRequest.newBuilder()
                 .uri(URI.create("https://api.amazon.com/auth/o2/token"))
                 .header("Content-Type", "application/x-www-form-urlencoded;charset=UTF-8")
                 .POST(HttpRequest.BodyPublishers.ofString(formData))
-                .build(), "ACCESS_TOKEN");       
+                .build(), "ACCESS_TOKEN");
 
-            if(response == null || response.statusCode() != 200) {
-                logger.error("Amazon token refresh failed. Status: {}", response != null ? response.statusCode() : "null");
+            if (response == null || response.statusCode() != 200) {
+                logger.error("Amazon token refresh failed. Status: {}, Body: {}", 
+                    response != null ? response.statusCode() : "null",
+                    response != null ? response.body() : "null"); // log body for debugging
                 return;
             }
 
             ObjectNode responseJson = (ObjectNode) mapper.readTree(response.body());
-            accessToken = responseJson.has("access_token") ? responseJson.get("access_token").asText() : "";
+            accessToken = responseJson.has("access_token") ? responseJson.get("access_token").asText() : null;
 
-            if(accessToken != null){
-                logger.info("✅Amazon: Token refreshed successfully");
+            if (accessToken != null) {
+                logger.info("✅ Amazon: Token refreshed successfully");
+            } else {
+                logger.error("Amazon: Token refresh response missing access_token. Body: {}", response.body());
             }
-            
+
         } catch (Exception e) {
             logger.error("Amazon refresh_token FAILED. error: {}", e.getMessage());
-            return;
         }
     }
 
