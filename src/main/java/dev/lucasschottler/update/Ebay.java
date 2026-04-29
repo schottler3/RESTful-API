@@ -31,7 +31,7 @@ public class Ebay {
 
     private String globalAccessToken;
     
-    private void refreshToken() {
+    private synchronized void refreshToken() {
 
         // Get required credentials from environment
         String refreshToken = System.getenv("EBAY_REFRESH_TOKEN");

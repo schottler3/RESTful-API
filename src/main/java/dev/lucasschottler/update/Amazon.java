@@ -104,7 +104,7 @@ public class Amazon {
         return amazonPrices;
     }
 
-    public boolean updateItem(DatabaseItem dbItem) throws AmazonNotFoundException{
+    public synchronized boolean updateItem(DatabaseItem dbItem) throws AmazonNotFoundException{
         
         if(accessToken == null || accessToken.equals("")) {
             refreshToken();
