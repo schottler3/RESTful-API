@@ -104,7 +104,7 @@ public class Amazon {
         return amazonPrices;
     }
 
-    public synchronized boolean updateItem(DatabaseItem dbItem) throws AmazonNotFoundException{
+    public boolean updateItem(DatabaseItem dbItem) throws AmazonNotFoundException{
         
         if(accessToken == null || accessToken.equals("")) {
             refreshToken();
@@ -333,7 +333,7 @@ public class Amazon {
         return true;
     }
 
-    private void refreshToken() {
+    private synchronized void refreshToken() {
         try {
             String token = System.getenv("AMAZON_TOKEN");
             String clientId = System.getenv("AMAZON_IDENTIFIER");
