@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import dev.lucasschottler.api.Webhook;
 import dev.lucasschottler.database.DatabaseItem;
+import dev.lucasschottler.fulfillment.Policies;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
@@ -28,6 +29,7 @@ public class Ebay {
     private static final Ebay ebayService = new Ebay();
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final HttpClient httpClient = HttpClient.newHttpClient();
+    private static final Policies policies = new Policies();
 
     private String globalAccessToken;
     
@@ -292,31 +294,49 @@ public class Ebay {
             .build(), dbItem.sku);
     }
 
-    public static boolean updateOffer(DatabaseItem dbItem){
-        
+    public static boolean updateOffer(DatabaseItem dbItem) {
+
         if (ebayService.globalAccessToken == null) {
             ebayService.refreshToken();
         }
-        
+
         final String API = System.getenv("EBAY_INVENTORY_API_END");
 
         ObjectNode offerUpdateNode = mapper.createObjectNode();
 
+        // Pricing
         ObjectNode pricingSummary = offerUpdateNode.putObject("pricingSummary");
         ObjectNode price = pricingSummary.putObject("price");
-
-        offerUpdateNode.put("availableQuantity", dbItem.custom_quantity != null && dbItem.custom_quantity > 0 ? dbItem.custom_quantity : (int) (dbItem.quantity * .66));
-
         price.put("currency", "USD");
-        //logger.info("Ebay: Using price: {}", dbItem.calculated_price);
         price.put("value", dbItem.calculated_price);
 
+        // Quantity
+        offerUpdateNode.put("availableQuantity",
+            dbItem.custom_quantity != null && dbItem.custom_quantity > 0
+                ? dbItem.custom_quantity
+                : (int) (dbItem.quantity * .66));
+
+        // Fulfillment policy
+        Policies.FulfillmentPolicy fulfillmentPolicy = policies.getFulfillmentPolicy(
+            dbItem.fulfillment,
+            dbItem.package_weight != null ? dbItem.package_weight : dbItem.weight,
+            dbItem.package_length != null ? dbItem.package_length : dbItem.length,
+            dbItem.package_width != null ? dbItem.package_width : dbItem.width,
+            dbItem.package_height != null ? dbItem.package_height : dbItem.height
+        );
+
+        ObjectNode listingPolicies = offerUpdateNode.putObject("listingPolicies");
+        listingPolicies.put("fulfillmentPolicyId", fulfillmentPolicy.getId());
+
+        // Offer ID
         String offerId = ebayService.getOfferId(dbItem.sku.trim().replace(" ", "%20"));
 
         if (offerId == null) {
             logger.error("Ebay: Could not retrieve offerId for sku: {}, aborting updateOffer", dbItem.sku);
             return false;
         }
+
+        logger.info("OfferUpdate: {}", offerUpdateNode.toString());
 
         final String offer_url = API + "offer/" + offerId;
 
