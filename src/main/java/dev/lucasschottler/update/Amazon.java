@@ -408,8 +408,8 @@ public class Amazon {
                         continue;
                     case 403:
                         logger.error("Amazon: Forbidden, check permissions. sku: {}, body: {}", sku, response.body());
-                        Webhook.sendMessage(String.format("Amazon: 403 sku: %s, body: %s \nhttps://app.lucasschottler.dev/admin/inventory/%s", sku, response.body(), sku));
-                        return null;
+                        refreshToken();
+                        continue;
                     case 404:
                         //logger.warn("Amazon: 404 not found, sku: {}", sku);
                         return response; // returned so caller can handle (e.g. item doesn't exist yet)
