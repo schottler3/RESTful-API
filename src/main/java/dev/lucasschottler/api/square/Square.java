@@ -139,6 +139,16 @@ public class Square {
 
         //logger.info("Square found sku with object: {}", objects.asText());
 
-        return objects.get(0).path("id").asText();
+        for (JsonNode obj : objects) {
+            JsonNode variationData = obj.path("item_variation_data");
+            if (variationData.path("track_inventory").asBoolean(false)) {
+                String id = obj.path("id").asText();
+                logger.info("Square selected trackable variation {} for mpn: {}", id, mpn);
+                return id;
+            }
+        }
+
+        logger.warn("Square found no inventory-tracked variation for mpn: {}", mpn);
+        return null;
     }
 }

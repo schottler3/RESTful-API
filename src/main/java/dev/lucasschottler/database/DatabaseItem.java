@@ -113,8 +113,12 @@ public class DatabaseItem {
     public void updateItem(Databasing db) {
         Integer squareQuantity = square.getInventoryCountByMpn(this.mpn);
 
+        logger.info("DatabaseItem: SquareQuantity = {}. sku = {}", squareQuantity, this.sku);
+
+        //TODO: Make the custom quantity dependant on the bom ratio
+
         if (squareQuantity != null && !squareQuantity.equals(this.custom_quantity)) {
-            //logger.info("Custom Quantity (Square) Updated: {} -> {}", this.custom_quantity, squareQuantity);
+            logger.info("Custom Quantity (Square) Updated: {} -> {}", this.custom_quantity, squareQuantity);
             this.custom_quantity = squareQuantity;
             if (!db.patchItem(this.sku, "custom_quantity", squareQuantity)) {
                 logger.warn("Database Item UPDATE failure on attribute = custom_quantity: sku = {}", this.sku);
