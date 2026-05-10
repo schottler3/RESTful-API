@@ -161,12 +161,13 @@ public class Ebay {
         
         // Add image URLs
         ArrayNode imageUrls = product.putArray("imageUrls");
-        if (dbItem.milwaukee_images != null && !dbItem.milwaukee_images.isEmpty()) {
-            for (String url : dbItem.milwaukee_images.split(",")) {
+        if (dbItem.images != null && !dbItem.images.isEmpty()) {
+            for (String url : dbItem.images.split(",")) {
                 imageUrls.add(url.trim());
             }
         } else {
-            imageUrls.add(dbItem.lakes_images);
+            imageUrls.add("");
+            Webhook.sendMessage(String.format("Ebay: CreateOrUpdateItem sku: {} does not have any images", dbItem.sku));
         }
         
         // Build root object
@@ -193,7 +194,10 @@ public class Ebay {
         
         ObjectNode fulfillmentTime = shipToLocationAvailability.putObject("fulfillmentTime");
         fulfillmentTime.put("unit", "BUSINESS_DAY");
-        fulfillmentTime.put("value", dbItem.fulfillment != null ? dbItem.fulfillment : 3);
+
+        int daysForFulfillment = dbItem.custom_quantity != null && dbItem.custom_quantity > 0 ? 1 : 5;
+        daysForFulfillment = dbItem.fulfillment != null ? dbItem.fulfillment : 5;
+        fulfillmentTime.put("value", daysForFulfillment);
         
         shipToLocationAvailability.put("quantity", quantity);
         shipToLocationAvailability.put("merchantLocationKey", MERCHANT_LOCATION_KEY);
@@ -213,7 +217,7 @@ public class Ebay {
 
         //logger.info("Ebay createOrUpdate 1: sku: {}", dbItem.sku);
 
-        //logger.info("Ebay createOrUpdate body: {}", jsonBody);
+        logger.info("Ebay createOrUpdate body: {}", jsonBody);
 
         return ebayService.doRequest(() -> HttpRequest.newBuilder()
             .uri(URI.create(url))
@@ -357,12 +361,12 @@ public class Ebay {
         for (int i = 0; i < max_retries; i++) {
             HttpRequest request = requestSupplier.get();
 
-            //logger.info("Ebay Data PUT ATTEMPT: sku: {}, attempt: {}", sku, i + 1);
+            logger.info("Ebay Data PUT ATTEMPT: sku: {}, attempt: {}", sku, i + 1);
             HttpResponse<String> response = null;
 
             try {
                 response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-                //logger.info("Ebay Data PUT FINISHED: sku: {}", sku);
+                logger.info("Ebay Data PUT FINISHED: sku: {}", sku);
             } catch (Exception e) {
                 logger.error("Ebay Data PUT EXCEPTION: sku: {}, attempt: {}, error: {}", 
                     sku, i + 1, e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());

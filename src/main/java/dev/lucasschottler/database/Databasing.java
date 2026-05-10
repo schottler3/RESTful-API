@@ -45,7 +45,7 @@ public class Databasing {
         "bulk_split_price",
         // String columns
         "type", "mpn", "title", "description", "upc", "sku",
-        "milwaukee_images", "lakes_images", "barcode_title", "marketplaces", "square_variation_id"
+        "images", "barcode_title", "marketplaces", "square_variation_id"
     );
 
     private static final Set<String> allowedMarketplaces = Set.of("amazon", "ebay");
@@ -180,8 +180,8 @@ public class Databasing {
         String sql = """
             INSERT INTO superior (
                 lakesid, width, length, height, weight, type, mpn, title, description,
-                upc, quantity, custom_quantity, sku, milwaukee_images, package_width,
-                package_length, package_height, package_weight, lakes_images,
+                upc, quantity, custom_quantity, sku, images, package_width,
+                package_length, package_height, package_weight,
                 minimum_price, calculated_price, maximum_price, lakes_price,
                 custom_price, fulfillment, square_variation_id, marketplaces
             ) VALUES (
@@ -193,9 +193,9 @@ public class Databasing {
             int updated = jdbcTemplate.update(sql,
                 dbItem.lakesid, dbItem.width, dbItem.length, dbItem.height, dbItem.weight,
                 dbItem.type, dbItem.mpn, dbItem.title, dbItem.description, dbItem.upc,
-                dbItem.quantity, dbItem.custom_quantity, dbItem.sku, dbItem.milwaukee_images,
-                dbItem.package_width, dbItem.package_length, dbItem.package_height, dbItem.package_weight,
-                dbItem.lakes_images, dbItem.minimum_price, dbItem.calculated_price, dbItem.maximum_price,
+                dbItem.quantity, dbItem.custom_quantity, dbItem.sku, dbItem.images,
+                dbItem.package_width, dbItem.package_length, dbItem.package_height, 
+                dbItem.package_weight, dbItem.minimum_price, dbItem.calculated_price, dbItem.maximum_price,
                 dbItem.lakes_price, dbItem.custom_price, dbItem.fulfillment, dbItem.square_variation_id, marketplaces
             );
 
@@ -272,7 +272,7 @@ public class Databasing {
                 package_length = NULL,
                 package_height = NULL,
                 package_weight = NULL,
-                lakes_images = ?,
+                images = ?,
                 minimum_price = ?,
                 calculated_price = ?,
                 maximum_price = ?,
@@ -356,7 +356,7 @@ public class Databasing {
     }
 
     public boolean addReportNewItem(LakesItem item) {
-        String sql = "INSERT INTO report (lakesid, title, description, sku, lakes_price, lakes_images, quantity, date_added, type) " +
+        String sql = "INSERT INTO report (lakesid, title, description, sku, lakes_price, images, quantity, date_added, type) " +
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new') ON CONFLICT (lakesid) DO NOTHING";
         return jdbcTemplate.update(sql, item.lakesid, item.title, item.description, item.sku, item.price, item.imageLink, item.quantity, Timestamp.valueOf(LocalDateTime.now())) > 0;
     }
@@ -364,7 +364,7 @@ public class Databasing {
     public boolean addReportDiscItem(DatabaseItem item) {
         String sql = "INSERT INTO report (lakesid, title, description, sku, lakes_price, lakes_images, quantity, date_added, type) " +
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'disc') ON CONFLICT (lakesid) DO NOTHING";
-        return jdbcTemplate.update(sql, item.lakesid, item.title, item.description, item.sku, item.lakes_price, item.lakes_images, item.quantity, Timestamp.valueOf(LocalDateTime.now())) > 0;
+        return jdbcTemplate.update(sql, item.lakesid, item.title, item.description, item.sku, item.lakes_price, item.images, item.quantity, Timestamp.valueOf(LocalDateTime.now())) > 0;
     }
 
     public boolean deleteReportItem(int lakesid){

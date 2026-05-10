@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory;
 
 public class ReportItem {
 
-    private final Logger logger = LoggerFactory.getLogger(ReportItem.class);
+    //private final Logger logger = LoggerFactory.getLogger(ReportItem.class);
     
     public Integer lakesid;
     public String title;

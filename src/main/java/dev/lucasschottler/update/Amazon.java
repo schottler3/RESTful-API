@@ -250,16 +250,16 @@ public class Amazon {
 
         // #region Images patch
 
-        if(dbItem.milwaukee_images != null){
-            String[] milwaukee_images = dbItem.milwaukee_images.split(",");
+        if(dbItem.images != null && dbItem.images != ""){
+            String[] images = dbItem.images.split(",");
             
             // Trim whitespace from URLs
-            milwaukee_images = java.util.Arrays.stream(milwaukee_images)
+            images = java.util.Arrays.stream(images)
                 .map(String::trim)
                 .filter(url -> !url.isEmpty())
                 .toArray(String[]::new);
 
-            if(milwaukee_images.length > 0){
+            if(images.length > 0){
                 
                 // Set main product image (first image)
                 ObjectNode mainImagePatch = mapper.createObjectNode();
@@ -268,7 +268,7 @@ public class Amazon {
                 
                 ArrayNode mainImageArr = mapper.createArrayNode();
                 ObjectNode mainImageObj = mapper.createObjectNode();
-                mainImageObj.put("media_location", milwaukee_images[0]);
+                mainImageObj.put("media_location", images[0]);
                 mainImageObj.put("marketplace_id", MARKETPLACE_ID);
                 mainImageArr.add(mainImageObj);
                 
@@ -276,7 +276,7 @@ public class Amazon {
                 patches.add(mainImagePatch);
 
                 // Set additional images (remaining images)
-                int maxAdditionalImages = Math.min(milwaukee_images.length - 1, 8); // Amazon allows up to 8 additional images
+                int maxAdditionalImages = Math.min(images.length - 1, 8);
                 
                 for (int i = 0; i < maxAdditionalImages; i++) {
                     ObjectNode imagePatch = mapper.createObjectNode();
@@ -285,7 +285,7 @@ public class Amazon {
 
                     ArrayNode valueArr = mapper.createArrayNode();
                     ObjectNode valueObj = mapper.createObjectNode();
-                    valueObj.put("media_location", milwaukee_images[i + 1]); // Start from second image
+                    valueObj.put("media_location", images[i + 1]);
                     valueObj.put("marketplace_id", MARKETPLACE_ID);
                     valueArr.add(valueObj);
 

@@ -129,6 +129,8 @@ public class Actions {
             return true;
         }
 
+        logger.info("Actions: Attempting updateAndPush with data: {}", dbItem);
+
         boolean amazonSuccess = false;
         boolean ebaySuccess = false;
 
@@ -148,9 +150,8 @@ public class Actions {
 
         if(dbItem.marketplaces.contains("ebay")){
 
-            boolean successOnItem = dbItem.last_ebay == null 
-                ? Ebay.createOrUpdateItem(dbItem) 
-                : Ebay.updateItem(dbItem);
+            //Removed updateItem for verbose "push database" verbage
+            boolean successOnItem = Ebay.createOrUpdateItem(dbItem);
 
             boolean successOnOffer = Ebay.updateOffer(dbItem);
 

@@ -30,12 +30,11 @@ public class DatabaseItem {
     public Integer custom_quantity;
     public String sku;
     public Timestamp updated_at;
-    public String milwaukee_images;
+    public String images;
     public Double package_width;
     public Double package_length;
     public Double package_height;
     public Double package_weight;
-    public String lakes_images;
     public Double minimum_price;
     public Double calculated_price;
     public Double maximum_price;
@@ -68,12 +67,11 @@ public class DatabaseItem {
         this.custom_quantity = (Integer) item.get("custom_quantity");
         this.sku = (String) item.get("sku");
         this.updated_at = (Timestamp) item.get("updated_at");
-        this.milwaukee_images = (String) item.get("milwaukee_images");
+        this.images = (String) item.get("images");
         this.package_width = (Double) item.get("package_width");
         this.package_length = (Double) item.get("package_length");
         this.package_height = (Double) item.get("package_height");
         this.package_weight = (Double) item.get("package_weight");
-        this.lakes_images = (String) item.get("lakes_images");
         this.minimum_price = (Double) item.get("minimum_price");
         this.calculated_price = (Double) item.get("calculated_price");
         this.maximum_price = (Double) item.get("maximum_price");
@@ -101,7 +99,6 @@ public class DatabaseItem {
         this.title = item.title;
         this.description = item.description;
         this.upc = item.upc;
-        this.lakes_images = item.imageLink;
         this.fulfillment = DEFAULT_FULFILLMENT;
 
         HashMap<String, Double> amazonPrices = Amazon.getPrices(this.lakes_price);
@@ -227,13 +224,6 @@ public class DatabaseItem {
                 logger.warn("Database Item UPDATE failure on attribute = upc: sku = {}", this.sku);
             }
         }
-
-        if (this.lakes_images == null) {
-            this.lakes_images = lakesItem.imageLink;
-            if (!db.patchItem(this.sku, "lakes_images", this.lakes_images)) {
-                logger.warn("Database Item UPDATE failure on attribute = lakes_images: sku = {}", this.sku);
-            }
-        }
     }
 
     public void setPricingFields(Double price, Databasing db){
@@ -272,12 +262,11 @@ public class DatabaseItem {
                 "    custom_quantity=" + custom_quantity + ",\n" +
                 "    sku='" + sku + "',\n" +
                 "    updated_at=" + updated_at + ",\n" +
-                "    milwaukee_images='" + milwaukee_images + "',\n" +
+                "    milwaukee_images='" + images + "',\n" +
                 "    package_width=" + package_width + ",\n" +
                 "    package_length=" + package_length + ",\n" +
                 "    package_height=" + package_height + ",\n" +
                 "    package_weight=" + package_weight + ",\n" +
-                "    lakes_images='" + lakes_images + "',\n" +
                 "    minimum_price=" + minimum_price + ",\n" +
                 "    calculated_price=" + calculated_price + ",\n" +
                 "    maximum_price=" + maximum_price + ",\n" +
