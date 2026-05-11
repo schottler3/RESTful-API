@@ -29,4 +29,9 @@ public class ApiKeyFilter extends OncePerRequestFilter {
             response.getWriter().write("{\"error\":\"Unauthorized: Invalid or missing API Key\"}");
         }
     }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return request.getRequestURI().startsWith("/superior/marketplace/ebay");
+    }
 }
