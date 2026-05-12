@@ -1,4 +1,4 @@
-package dev.lucasschottler.update;
+package dev.lucasschottler.marketplaces;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.core.type.TypeReference;
 
 import dev.lucasschottler.api.Webhook;
 import dev.lucasschottler.database.DatabaseItem;
@@ -19,6 +20,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class Amazon {
@@ -39,6 +41,22 @@ public class Amazon {
     }
 
     private String accessToken;
+
+    public Map<String, Object> getOrders(String createdAfter) {
+        HttpResponse<String> response = doRequest(() -> HttpRequest.newBuilder()
+            .uri(URI.create(String.format("https://sellingpartnerapi-na.amazon.com/orders/v0/orders?createdAfter=%s", createdAfter)))
+            .header("accept", "application/json")
+            .GET()
+            .build(), "ACCESS_TOKEN");
+
+        ObjectMapper mapper = new ObjectMapper();
+        try{
+            return mapper.readValue(response.body(), new TypeReference<Map<String, Object>>() {});
+        } catch(Exception e){
+            logger.error("Amazon: An error ocurred getting the new orders!: {}", e);
+            return null;
+        }
+    }
 
     public static HashMap<String, Double> getPrices(double basePrice) {
 

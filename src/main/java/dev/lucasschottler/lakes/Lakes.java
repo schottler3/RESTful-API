@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import dev.lucasschottler.update.Ebay;
+import dev.lucasschottler.marketplaces.Ebay;
 
 @Service
 public class Lakes {

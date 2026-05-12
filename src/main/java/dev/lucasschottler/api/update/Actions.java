@@ -1,4 +1,4 @@
-package dev.lucasschottler.api;
+package dev.lucasschottler.api.update;
 
 import java.util.List;
 import java.util.Map;
@@ -12,14 +12,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.stereotype.Service;
 
+import dev.lucasschottler.api.StateService;
 import dev.lucasschottler.api.square.Square;
 import dev.lucasschottler.database.DatabaseItem;
 import dev.lucasschottler.database.Databasing;
 import dev.lucasschottler.lakes.Lakes;
 import dev.lucasschottler.lakes.LakesItem;
-import dev.lucasschottler.update.Amazon;
-import dev.lucasschottler.update.Amazon.AmazonNotFoundException;
-import dev.lucasschottler.update.Ebay;
+import dev.lucasschottler.marketplaces.Amazon;
+import dev.lucasschottler.marketplaces.Ebay;
+import dev.lucasschottler.marketplaces.Amazon.AmazonNotFoundException;
 
 @Service
 public class Actions {
@@ -29,7 +30,7 @@ public class Actions {
     private final StateService stateService;
     private final Square square;
     private Lakes lakes;
-    Amazon amazon = new Amazon();
+    private Amazon amazon = new Amazon();
 
     public Actions(Databasing db, Lakes lakes, StateService stateService, Square square){
         this.db = db;

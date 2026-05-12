@@ -1,4 +1,4 @@
-package dev.lucasschottler.update;
+package dev.lucasschottler.marketplaces;
 
 import java.io.IOException;
 import java.net.URI;

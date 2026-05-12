@@ -19,12 +19,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import dev.lucasschottler.api.Actions;
 import dev.lucasschottler.database.DatabaseItem;
 import dev.lucasschottler.database.Databasing;
-import dev.lucasschottler.update.Amazon;
+import dev.lucasschottler.marketplaces.Amazon;
 import dev.lucasschottler.api.StateService;
 import dev.lucasschottler.api.square.Square;
+import dev.lucasschottler.api.update.Actions;
 
 @RestController
 @RequestMapping("/superior/data")

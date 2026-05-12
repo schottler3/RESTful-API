@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 import dev.lucasschottler.api.controllers.BaseController;
 import dev.lucasschottler.api.square.Square;
 import dev.lucasschottler.lakes.LakesItem;
-import dev.lucasschottler.update.Amazon;
+import dev.lucasschottler.marketplaces.Amazon;
 
 public class DatabaseItem {
 

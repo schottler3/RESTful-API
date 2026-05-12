@@ -12,7 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import dev.lucasschottler.lakes.LakesItem;
-import dev.lucasschottler.update.Amazon;
+import dev.lucasschottler.marketplaces.Amazon;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
