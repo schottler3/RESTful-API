@@ -1,0 +1,1 @@
+SELECT square_variation_id from superior WHERE square_variation_id IS NOT NULL;

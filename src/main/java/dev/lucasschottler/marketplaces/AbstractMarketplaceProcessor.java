@@ -1,4 +1,4 @@
-package dev.lucasschottler.update;
+package dev.lucasschottler.marketplaces;
 
 import java.net.http.HttpResponse;
 

@@ -253,4 +253,21 @@ public class Actions {
         return bulkSplitPrice;
     }
 
+    public boolean updateSquareInventory(String sku, int quantity){
+
+        DatabaseItem dbItem = new DatabaseItem(db.getData(sku));
+
+        String variationId = dbItem.square_variation_id;
+
+        if(variationId == null || variationId.isBlank()){
+            variationId = square.getVariationID(sku);
+        }
+
+        if(variationId == null || variationId.isBlank()){
+            return false;
+        } else {
+            return square.updateInventoryCount(variationId, quantity);
+        }
+
+    }
 }

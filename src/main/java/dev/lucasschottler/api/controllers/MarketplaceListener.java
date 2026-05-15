@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import dev.lucasschottler.api.Webhook;
+import dev.lucasschottler.api.update.Actions;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -18,10 +19,24 @@ import java.util.Map;
 class MarketplaceListener {
 
     private static final Logger logger = LoggerFactory.getLogger(MarketplaceListener.class);
+    private  final Actions actions;
 
     private String verificationToken = System.getenv("EBAY_VERIFICATION_TOKEN");
 
     private String endpointUrl = System.getenv("EBAY_ENDPOINT_URL");
+
+    public MarketplaceListener(Actions actions){
+        this.actions = actions;
+    }
+
+    @GetMapping("/{sku}") 
+    public ResponseEntity<String> manualSquareUpdate(@PathVariable String sku, @RequestParam(required = true) int quantity){
+        if(actions.updateSquareInventory(sku, quantity)){
+            return ResponseEntity.ok("Success");
+        } else {
+            return ResponseEntity.status(400).body("Failure");
+        }
+    }
 
     // Step 1: eBay calls GET first to verify you own the endpoint
     @GetMapping("/ebay")

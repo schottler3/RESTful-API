@@ -5,6 +5,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Instant;
+import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class Square {
 
     private final String personalAccessToken = System.getenv("SQUARE_PERSONAL_ACCESS_TOKEN");
+    private final String locationId = System.getenv("SQUARE_LOCATIONID");
     private final HttpClient httpClient = HttpClient.newHttpClient();
     private static final Logger logger = LoggerFactory.getLogger(Square.class);
     private final ObjectMapper mapper = new ObjectMapper();
@@ -97,58 +100,110 @@ public class Square {
         return mapper.readTree(inventoryResponse.body());
     }
 
-    public String getVariationID(String mpn) throws IOException, InterruptedException {
-        //logger.info("Square received request for mpn: {}", mpn);
+    public String getVariationID(String mpn) {
+        try{
+            //logger.info("Square received request for mpn: {}", mpn);
 
-        String searchBody = """
-            {
-                "object_types": ["ITEM_VARIATION"],
-                "query": {
-                    "exact_query": {
-                        "attribute_name": "sku",
-                        "attribute_value": "%s"
+            String searchBody = """
+                {
+                    "object_types": ["ITEM_VARIATION"],
+                    "query": {
+                        "exact_query": {
+                            "attribute_name": "sku",
+                            "attribute_value": "%s"
+                        }
                     }
                 }
-            }
-            """.formatted(mpn);
+                """.formatted(mpn);
 
-        HttpRequest searchRequest = HttpRequest.newBuilder()
-            .uri(URI.create("https://connect.squareup.com/v2/catalog/search"))
+            HttpRequest searchRequest = HttpRequest.newBuilder()
+                .uri(URI.create("https://connect.squareup.com/v2/catalog/search"))
+                .header("Authorization", "Bearer " + personalAccessToken)
+                .header("Square-Version", "2026-01-22")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(searchBody))
+                .build();
+
+            //logger.info("Square is sending request for inventory object: {}", searchBody);
+
+            HttpResponse<String> searchResponse = httpClient.send(searchRequest, HttpResponse.BodyHandlers.ofString());
+
+            if (searchResponse.statusCode() < 200 || searchResponse.statusCode() >= 300) {
+                logger.error("Square API error: {} - {}", searchResponse.statusCode(), searchResponse.body());
+                throw new IOException("Square API request failed with status " + searchResponse.statusCode());
+            }
+
+            JsonNode searchJson = mapper.readTree(searchResponse.body());
+            JsonNode objects = searchJson.path("objects");
+
+            if (objects.isEmpty()) {
+            // logger.info("Square found no SKU: {}", mpn);
+                return null;
+            }
+
+            //logger.info("Square found sku with object: {}", objects.asText());
+
+            for (JsonNode obj : objects) {
+                JsonNode variationData = obj.path("item_variation_data");
+                if (variationData.path("track_inventory").asBoolean(false)) {
+                    String id = obj.path("id").asText();
+                    logger.info("Square selected trackable variation {} for mpn: {}", id, mpn);
+                    return id;
+                }
+            }
+
+            logger.warn("Square found no inventory-tracked variation for mpn: {}", mpn);
+            return null;
+        } catch (Exception e){
+            logger.error("Square: Unable to parse square data upon getting the variationId, ", e);
+            return null;
+        }
+    }
+
+    public boolean updateInventoryCount(String variationId, int quantity) {
+
+        String body = """
+            {
+                "idempotency_key": "%s",
+                "changes": [
+                    {
+                        "type": "PHYSICAL_COUNT",
+                        "physical_count": {
+                            "catalog_object_id": "%s",
+                            "state": "IN_STOCK",
+                            "location_id": "%s",
+                            "quantity": "%d",
+                            "occurred_at": "%s"
+                        }
+                    }
+                ],
+                "ignore_unchanged_counts": true
+            }
+        """.formatted(
+                UUID.randomUUID().toString(),
+                variationId,
+                locationId,
+                quantity,
+                Instant.now().toString()
+            );
+
+        logger.info("Square: Sending inventory update: {}", body);
+
+        HttpRequest inventoryRequest = HttpRequest.newBuilder()
+            .uri(URI.create("https://connect.squareup.com/v2/inventory/changes/batch-create"))
             .header("Authorization", "Bearer " + personalAccessToken)
             .header("Square-Version", "2026-01-22")
             .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(searchBody))
+            .POST(HttpRequest.BodyPublishers.ofString(body))
             .build();
 
-        //logger.info("Square is sending request for inventory object: {}", searchBody);
-
-        HttpResponse<String> searchResponse = httpClient.send(searchRequest, HttpResponse.BodyHandlers.ofString());
-
-        if (searchResponse.statusCode() < 200 || searchResponse.statusCode() >= 300) {
-            logger.error("Square API error: {} - {}", searchResponse.statusCode(), searchResponse.body());
-            throw new IOException("Square API request failed with status " + searchResponse.statusCode());
+        try {
+            HttpResponse<String> response = httpClient.send(inventoryRequest, HttpResponse.BodyHandlers.ofString());
+            return response.statusCode() == 200;
+        } catch (Exception e) {
+            logger.error("Failed to update Square inventory for variation {}: {}", variationId, e.getMessage());
+            return false;
         }
-
-        JsonNode searchJson = mapper.readTree(searchResponse.body());
-        JsonNode objects = searchJson.path("objects");
-
-        if (objects.isEmpty()) {
-           // logger.info("Square found no SKU: {}", mpn);
-            return null;
-        }
-
-        //logger.info("Square found sku with object: {}", objects.asText());
-
-        for (JsonNode obj : objects) {
-            JsonNode variationData = obj.path("item_variation_data");
-            if (variationData.path("track_inventory").asBoolean(false)) {
-                String id = obj.path("id").asText();
-                logger.info("Square selected trackable variation {} for mpn: {}", id, mpn);
-                return id;
-            }
-        }
-
-        logger.warn("Square found no inventory-tracked variation for mpn: {}", mpn);
-        return null;
     }
+
 }

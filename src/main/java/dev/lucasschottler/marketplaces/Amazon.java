@@ -6,10 +6,11 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.core.type.TypeReference;
 
 import dev.lucasschottler.api.Webhook;
 import dev.lucasschottler.database.DatabaseItem;
+import dev.lucasschottler.marketplaces.util.JsonToData;
+import dev.lucasschottler.marketplaces.types.AmazonOrder;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
@@ -20,7 +21,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 
 @Service
 public class Amazon {
@@ -42,20 +43,31 @@ public class Amazon {
 
     private String accessToken;
 
-    public Map<String, Object> getOrders(String createdAfter) {
-        HttpResponse<String> response = doRequest(() -> HttpRequest.newBuilder()
-            .uri(URI.create(String.format("https://sellingpartnerapi-na.amazon.com/orders/v0/orders?createdAfter=%s", createdAfter)))
-            .header("accept", "application/json")
-            .GET()
-            .build(), "ACCESS_TOKEN");
-
-        ObjectMapper mapper = new ObjectMapper();
-        try{
-            return mapper.readValue(response.body(), new TypeReference<Map<String, Object>>() {});
-        } catch(Exception e){
-            logger.error("Amazon: An error ocurred getting the new orders!: {}", e);
-            return null;
+    public List<AmazonOrder> getOrders(String createdAfter) {
+        if (accessToken == null || accessToken.isEmpty()) {
+            refreshToken();
         }
+
+        String url = String.format("%s/orders/2026-01-01/orders?createdAfter=%s&marketplaceIds=%s&includedData=FULFILLMENT", 
+            ENDPOINT, 
+            URLEncoder.encode(createdAfter, StandardCharsets.UTF_8), 
+            MARKETPLACE_ID
+        );
+        //logger.info("Amazon: getOrders URL: {}", url);
+
+        HttpResponse<String> response = doRequest(() -> HttpRequest.newBuilder()
+            .uri(URI.create(url))
+            .header("accept", "application/json")
+            .header("x-amz-access-token", this.accessToken)
+            .GET()
+            .build(), "GET_ORDERS");
+
+            if (response == null) {
+                logger.error("Amazon: getOrders got null response");
+                return List.of();
+            } else {
+                return JsonToData.parseAmazonOrders(response.body());
+            }
     }
 
     public static HashMap<String, Double> getPrices(double basePrice) {
