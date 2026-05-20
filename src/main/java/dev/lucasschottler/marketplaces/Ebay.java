@@ -8,6 +8,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -15,6 +16,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.lucasschottler.api.Webhook;
 import dev.lucasschottler.database.DatabaseItem;
 import dev.lucasschottler.fulfillment.Policies;
+import dev.lucasschottler.marketplaces.types.EbayOffer;
+import dev.lucasschottler.marketplaces.util.JsonToData;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
@@ -25,11 +28,10 @@ import org.springframework.stereotype.Service;
 @Service
 public class Ebay {
 
-    private static final Logger logger = LoggerFactory.getLogger(Ebay.class);
-    private static final Ebay ebayService = new Ebay();
-    private static final ObjectMapper mapper = new ObjectMapper();
-    private static final HttpClient httpClient = HttpClient.newHttpClient();
-    private static final Policies policies = new Policies();
+    private final Logger logger = LoggerFactory.getLogger(Ebay.class);
+    private final ObjectMapper mapper = new ObjectMapper();
+    private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final Policies policies = new Policies();
 
     private String globalAccessToken;
     
@@ -81,7 +83,7 @@ public class Ebay {
                 logger.info("✅ Ebay: Token refreshed successfully");
                 
                 if(tokenData != null){
-                    ebayService.globalAccessToken = (String) tokenData.get("access_token");
+                    globalAccessToken = (String) tokenData.get("access_token");
                 }
 
             } else {
@@ -96,10 +98,10 @@ public class Ebay {
         }
     }
 
-    public static boolean createOrUpdateItem(DatabaseItem dbItem) {
+    public boolean createOrUpdateItem(DatabaseItem dbItem) {
 
-        if (ebayService.globalAccessToken == null) {
-            ebayService.refreshToken();
+        if (globalAccessToken == null) {
+            refreshToken();
         }
         
         //logger.info("Ebay createOrUpdate START: sku: {}", dbItem.sku);
@@ -219,9 +221,9 @@ public class Ebay {
 
         logger.info("Ebay createOrUpdate body: {}", jsonBody);
 
-        return ebayService.doRequest(() -> HttpRequest.newBuilder()
+        return doRequest(() -> HttpRequest.newBuilder()
             .uri(URI.create(url))
-            .header("Authorization", "Bearer " + ebayService.globalAccessToken)
+            .header("Authorization", "Bearer " + globalAccessToken)
             .header("Content-Type", "application/json")
             .header("Content-Language", "en-US")
             .header("X-EBAY-C-MARKETPLACE-ID", MARKETPLACEID)
@@ -229,42 +231,47 @@ public class Ebay {
             .build(), dbItem.sku);
     }
 
-    private String getOfferId(String sku) {
-        final String offer_url = System.getenv("EBAY_INVENTORY_API_END") + "offer?sku=" + sku.trim().replace(" ", "%20");
-
+    public List<EbayOffer> getOffer(String sku) {
+        final String offerUrl = System.getenv("EBAY_INVENTORY_API_END") + "offer?sku=" + sku.trim().replace(" ", "%20");
+    
         HttpResponse<String> response = doRequestForResponse(() -> HttpRequest.newBuilder()
-            .uri(URI.create(offer_url))
-            .header("Authorization", "Bearer " + ebayService.globalAccessToken)
+            .uri(URI.create(offerUrl))
+            .header("Authorization", "Bearer " + globalAccessToken)
             .header("Content-Type", "application/json")
             .header("Content-Language", "en-US")
             .header("X-EBAY-C-MARKETPLACE-ID", "EBAY-US")
             .GET()
             .build(), sku);
-
+    
         if (response == null) return null;
-
-        try {
-            Map<String, Object> responseMap = mapper.readValue(response.body(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
-            if (responseMap.containsKey("offers")) {
-                Object offersObj = responseMap.get("offers");
-                if (offersObj instanceof java.util.List && !((java.util.List<?>) offersObj).isEmpty()) {
-                    Object firstOffer = ((java.util.List<?>) offersObj).get(0);
-                    if (firstOffer instanceof Map) {
-                        Object offerId = ((Map<?, ?>) firstOffer).get("offerId");
-                        return offerId != null ? offerId.toString() : null;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Exception parsing offerId for sku: {}, error: {}", sku, e.getMessage());
-        }
-        return null;
+    
+        List<EbayOffer> offers = JsonToData.parseEbayOffers(response.body());
+        if (offers.isEmpty()) return null;
+    
+        return offers;
     }
 
-    public static boolean updateItem(DatabaseItem dbItem){
+    public EbayOffer getOfferById(String offerId) {
+        final String offerUrl = System.getenv("EBAY_INVENTORY_API_END") + "offer/" + offerId.trim().replace(" ", "%20");
+    
+        HttpResponse<String> response = doRequestForResponse(() -> HttpRequest.newBuilder()
+            .uri(URI.create(offerUrl))
+            .header("Authorization", "Bearer " + globalAccessToken)
+            .header("Content-Type", "application/json")
+            .header("Content-Language", "en-US")
+            .header("X-EBAY-C-MARKETPLACE-ID", "EBAY-US")
+            .GET()
+            .build(), offerId);
+    
+        if (response == null) return null;
+    
+        return JsonToData.parseEbayOffer(response.body());
+    }
+
+    public boolean updateItem(DatabaseItem dbItem){
         
-        if (ebayService.globalAccessToken == null) {
-            ebayService.refreshToken();
+        if (globalAccessToken == null) {
+            refreshToken();
         }
         
         final String API = System.getenv("EBAY_INVENTORY_API_END");
@@ -288,9 +295,9 @@ public class Ebay {
 
         //logger.info("InventoryUpdateData: {}", inventoryUpdateData);
 
-        return ebayService.doRequest(() -> HttpRequest.newBuilder()
+        return doRequest(() -> HttpRequest.newBuilder()
             .uri(URI.create(inventory_url))
-            .header("Authorization", "Bearer " + ebayService.globalAccessToken)
+            .header("Authorization", "Bearer " + globalAccessToken)
             .header("Content-Type", "application/json")
             .header("Content-Language", "en-US")
             .header("X-EBAY-C-MARKETPLACE-ID", "EBAY-US")
@@ -298,10 +305,10 @@ public class Ebay {
             .build(), dbItem.sku);
     }
 
-    public static boolean updateOffer(DatabaseItem dbItem) {
+    public boolean updateOffer(DatabaseItem dbItem) {
 
-        if (ebayService.globalAccessToken == null) {
-            ebayService.refreshToken();
+        if (globalAccessToken == null) {
+            refreshToken();
         }
 
         final String API = System.getenv("EBAY_INVENTORY_API_END");
@@ -333,20 +340,24 @@ public class Ebay {
         listingPolicies.put("fulfillmentPolicyId", fulfillmentPolicy.getId());
 
         // Offer ID
-        String offerId = ebayService.getOfferId(dbItem.sku.trim().replace(" ", "%20"));
+        List<EbayOffer> offers = getOffer(dbItem.sku.trim().replace(" ", "%20"));
 
-        if (offerId == null) {
-            logger.error("Ebay: Could not retrieve offerId for sku: {}, aborting updateOffer", dbItem.sku);
+        if (offers == null || offers.isEmpty()) {
+            logger.error("Ebay: Could not retrieve offer for sku: {}, aborting updateOffer", dbItem.sku);
             return false;
+        } else if(offers.size() > 1){
+            Webhook.sendMessage(String.format("Ebay: Multiple ebay offers were found under a single sku: %s", dbItem.sku));
         }
+
+        String offerId = offers.get(0).getOfferId();
 
         logger.info("OfferUpdate: {}", offerUpdateNode.toString());
 
         final String offer_url = API + "offer/" + offerId;
 
-        return ebayService.doRequest(() -> HttpRequest.newBuilder()
+        return doRequest(() -> HttpRequest.newBuilder()
             .uri(URI.create(offer_url))
-            .header("Authorization", "Bearer " + ebayService.globalAccessToken)
+            .header("Authorization", "Bearer " + globalAccessToken)
             .header("Content-Type", "application/json")
             .header("Content-Language", "en-US")
             .header("X-EBAY-C-MARKETPLACE-ID", "EBAY-US")

@@ -13,6 +13,7 @@ public class Webhook {
     private static final String WEBHOOK_URL = System.getenv("WEBHOOK_URL");
     private static final String FULFILLMENT_WEBHOOK_URL = System.getenv("FULFILLMENT_WEBHOOK_URL");
     private static final String EBAY_WEBHOOK_URL = System.getenv("EBAY_WEBHOOK_URL");
+    private static final String AMAZON_WEBHOOK_URL = System.getenv("AMAZON_WEBHOOK_URL");
     private static final OkHttpClient client = new OkHttpClient();
     private static final MediaType JSON = MediaType.get("application/json");
     private static final Logger logger = LoggerFactory.getLogger(Webhook.class);
@@ -77,6 +78,27 @@ public class Webhook {
             }
         } catch (Exception e){
             logger.error("Webhook: Unable to send ebay message!: {}", content);
+        }
+    }
+
+    public static void sendAmazonMessage(String content) {
+        try{
+            JSONObject payload = new JSONObject();
+            payload.put("content", "\n<=>\n" + content + "\n<=>\n");
+
+            RequestBody body = RequestBody.create(payload.toString(), JSON);
+            Request request = new Request.Builder()
+                    .url(AMAZON_WEBHOOK_URL)
+                    .post(body)
+                    .build();
+
+            try (Response response = client.newCall(request).execute()) {
+                if (!response.isSuccessful()) {
+                    throw new RuntimeException("Discord error: " + response.code() + " " + response.body().string());
+                }
+            }
+        } catch (Exception e){
+            logger.error("Webhook: Unable to send amazon message!: {}", content);
         }
     }
 }

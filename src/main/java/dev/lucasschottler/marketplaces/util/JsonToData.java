@@ -11,6 +11,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.lucasschottler.api.Webhook;
 import dev.lucasschottler.marketplaces.types.AmazonOrder;
 import dev.lucasschottler.marketplaces.types.AmazonOrdersResponse;
+import dev.lucasschottler.marketplaces.types.EbayOffer;
+import dev.lucasschottler.marketplaces.types.EbayOffer.EbayOffersResponse;
+import dev.lucasschottler.marketplaces.types.EbayOrderConfirmation;
 
 public class JsonToData{
 
@@ -40,6 +43,49 @@ public class JsonToData{
         } catch (Exception e){
             logger.error("Failed to parse json from amazon orders! {}", rawJson);
             Webhook.sendMessage("JsonParser: Failed to parse json from Amazon orders!");
+            return List.of();
+        }
+    }
+
+    public static EbayOrderConfirmation parseEbayOrderConfirmation(String rawJson) {
+        try {
+            EbayOrderConfirmation confirmation = mapper.readValue(rawJson, EbayOrderConfirmation.class);
+ 
+            return confirmation;
+ 
+        } catch (Exception e) {
+            logger.error("Failed to parse json from eBay order confirmation! {}", rawJson);
+            Webhook.sendMessage("JsonParser: Failed to parse json from eBay order confirmation!");
+            return null;
+        }
+    }
+
+    public static EbayOffer parseEbayOffer(String rawJson) {
+        try {
+            EbayOffer offer = mapper.readValue(rawJson, EbayOffer.class);
+ 
+            System.out.println(offer.getOfferId());
+            System.out.println(offer.getSku());
+            System.out.println(offer.getStatus());
+            System.out.println(offer.getListing().getListingStatus());
+            System.out.println(offer.getPricingSummary().getPrice().getValue());
+ 
+            return offer;
+ 
+        } catch (Exception e) {
+            logger.error("Failed to parse json from eBay offer! {}", rawJson);
+            Webhook.sendMessage("JsonParser: Failed to parse json from eBay offer!");
+            return null;
+        }
+    }
+
+    public static List<EbayOffer> parseEbayOffers(String rawJson) {
+        try {
+            EbayOffersResponse response = mapper.readValue(rawJson, EbayOffersResponse.class);
+            return response.getOffers() != null ? response.getOffers() : List.of();
+        } catch (Exception e) {
+            logger.error("Failed to parse json from eBay offers! {}", rawJson);
+            Webhook.sendMessage("JsonParser: Failed to parse json from eBay offers!");
             return List.of();
         }
     }

@@ -7,11 +7,13 @@ import org.springframework.web.bind.annotation.*;
 
 import dev.lucasschottler.api.Webhook;
 import dev.lucasschottler.api.update.Actions;
+import dev.lucasschottler.database.Databasing;
+import dev.lucasschottler.marketplaces.types.EbayOrderConfirmation;
+import dev.lucasschottler.marketplaces.util.JsonToData;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -19,14 +21,16 @@ import java.util.Map;
 class MarketplaceListener {
 
     private static final Logger logger = LoggerFactory.getLogger(MarketplaceListener.class);
-    private  final Actions actions;
+    private final Actions actions;
+    private final Databasing db;
 
     private String verificationToken = System.getenv("EBAY_VERIFICATION_TOKEN");
 
     private String endpointUrl = System.getenv("EBAY_ENDPOINT_URL");
 
-    public MarketplaceListener(Actions actions){
+    public MarketplaceListener(Actions actions, Databasing db){
         this.actions = actions;
+        this.db = db;
     }
 
     @GetMapping("/{sku}") 
@@ -61,21 +65,15 @@ class MarketplaceListener {
 
     // Step 2: eBay sends real events via POST
     @PostMapping("/ebay")
-    public ResponseEntity<Void> handleEbayEvent(@RequestBody Map<String, Object> body) {
-        Map<String, Object> notification = (Map<String, Object>) body.get("notification");
-        Map<String, Object> data = (Map<String, Object>) notification.get("data");
-        Map<String, Object> order = (Map<String, Object>) data.get("order");
-
-        String orderId = (String) order.get("orderId");
-        List<Map<String, Object>> lineItems = (List<Map<String, Object>>) order.get("orderLineItems");
-
-        for (Map<String, Object> lineItem : lineItems) {
-            String listingId = (String) lineItem.get("listingId");
-            Integer quantity = (Integer) lineItem.get("quantity");
-
-            Webhook.sendEbayMessage(String.format("Order: {}, ListingId: {}, Quantity: {}", orderId, listingId, quantity));
+    public ResponseEntity<Void> handleEbayEvent(@RequestBody String rawJson) {
+        EbayOrderConfirmation order = JsonToData.parseEbayOrderConfirmation(rawJson);
+    
+        if (order == null) {
+            return ResponseEntity.badRequest().build();
         }
-
+    
+        actions.updateSquareInventory(db.addEbayOrder(order));
+    
         return ResponseEntity.noContent().build();
     }
 }

@@ -12,6 +12,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 import dev.lucasschottler.api.StateService;
 import dev.lucasschottler.api.square.Square;
 import dev.lucasschottler.database.DatabaseItem;
@@ -20,6 +22,7 @@ import dev.lucasschottler.lakes.Lakes;
 import dev.lucasschottler.lakes.LakesItem;
 import dev.lucasschottler.marketplaces.Amazon;
 import dev.lucasschottler.marketplaces.Ebay;
+import dev.lucasschottler.marketplaces.types.Order;
 import dev.lucasschottler.marketplaces.Amazon.AmazonNotFoundException;
 
 @Service
@@ -29,14 +32,16 @@ public class Actions {
     private static final Logger logger = LoggerFactory.getLogger(Actions.class);
     private final StateService stateService;
     private final Square square;
+    private final Ebay ebay;
     private Lakes lakes;
     private Amazon amazon = new Amazon();
 
-    public Actions(Databasing db, Lakes lakes, StateService stateService, Square square){
+    public Actions(Databasing db, Lakes lakes, StateService stateService, Square square, Ebay ebay){
         this.db = db;
         this.stateService = stateService;
         this.square = square;
         this.lakes = lakes;
+        this.ebay = ebay;
     }
 
     public boolean resetItem(String sku){
@@ -152,9 +157,9 @@ public class Actions {
         if(dbItem.marketplaces.contains("ebay")){
 
             //Removed updateItem for verbose "push database" verbage
-            boolean successOnItem = Ebay.createOrUpdateItem(dbItem);
+            boolean successOnItem = ebay.createOrUpdateItem(dbItem);
 
-            boolean successOnOffer = Ebay.updateOffer(dbItem);
+            boolean successOnOffer = ebay.updateOffer(dbItem);
 
             if(successOnItem && successOnOffer){
                 ebaySuccess = db.updateLastSuccess("ebay", sku);
@@ -255,7 +260,13 @@ public class Actions {
 
     public boolean updateSquareInventory(String sku, int quantity){
 
-        DatabaseItem dbItem = new DatabaseItem(db.getData(sku));
+        Map<String, Object> data = db.getData(sku);
+
+        if(data == null){
+            return true;
+        }
+
+        DatabaseItem dbItem = new DatabaseItem(data);
 
         String variationId = dbItem.square_variation_id;
 
@@ -266,8 +277,108 @@ public class Actions {
         if(variationId == null || variationId.isBlank()){
             return false;
         } else {
+            db.patchItem(sku, "custom_quantity", quantity);
             return square.updateInventoryCount(variationId, quantity);
         }
 
+    }
+
+    public boolean updateSquareInventory(String orderId) {
+
+        Order order = db.getOrder(orderId);
+        if(order.getStatus().equals("UNSHIPPED")){
+
+            for (Order.Item item : order.getItems()) {
+
+                Map<String, Object> data = db.getData(item.sku);
+                if (data == null) {
+                    logger.warn("Actions: The dbItem was not found from sku: {}", item.sku);
+                    return false;
+                }
+
+                DatabaseItem dbItem = new DatabaseItem(data);
+                String variationId = dbItem.square_variation_id;
+
+                if (variationId == null || variationId.isBlank()) {
+                    logger.info("Actions: No variationId was found for this item: {}", item.sku);
+                    variationId = square.getVariationID(item.sku);
+                }
+
+                if (variationId == null || variationId.isBlank()) {
+                    logger.info("Actions: This item is not in square inventory: {}", item.sku);
+                    return false;
+                }
+
+                if(dbItem.custom_quantity != null && dbItem.custom_quantity >= 1){
+
+                    logger.info("Actions: Found a square_variation_id and is updating db and square!: {}, {}", item.sku, item.quantity);
+
+                    int quantity = dbItem.custom_quantity - item.quantity;
+                    if(quantity < 0){
+                        quantity = 0;
+                    }
+
+                    if(!db.patchItem(item.sku, "custom_quantity", quantity)){
+                        logger.warn("Actions: Failed to update the custom quantity for sku: {} with quantity: {}", item.sku, item.quantity);
+                        return false;
+                    }
+
+                    if (!square.updateInventoryCount(variationId, dbItem.custom_quantity - quantity)) {
+                        logger.warn("Actions: Failed to update the square quantity for sku: {} with quantity: {}", item.sku, item.quantity);
+                        return false;
+                    }
+
+                    logger.warn("Actions: Sucessfully updated the custom and square quantity for sku: {} with quantity: {}", item.sku, item.quantity);
+                }
+            }
+        }
+
+        return true;
+    }
+
+    public boolean cancelOrder(String orderId){
+        Order order = db.getOrder(orderId);
+        if(order.getStatus().equals("CANCELLED")){
+
+            for (Order.Item item : order.getItems()) {
+
+                Map<String, Object> data = db.getData(item.sku);
+                if (data == null) {
+                    logger.warn("Actions: The dbItem was not found from sku: {}", item.sku);
+                    return false;
+                }
+
+                DatabaseItem dbItem = new DatabaseItem(data);
+                String variationId = dbItem.square_variation_id;
+
+                if (variationId == null || variationId.isBlank()) {
+                    logger.info("Actions: No variationId was found for this item: {}", item.sku);
+                    variationId = square.getVariationID(item.sku);
+                }
+
+                if (variationId == null || variationId.isBlank()) {
+                    logger.info("Actions: This item is not in square inventory: {}", item.sku);
+                    return false;
+                }
+
+                if(dbItem.custom_quantity != null){
+
+                    logger.info("Actions: Found a square_variation_id and is updating db and square!: {}, {}", item.sku, item.quantity);
+
+                    if(!db.patchItem(item.sku, "custom_quantity", dbItem.custom_quantity + item.quantity)){
+                        logger.warn("Actions: Failed to update the custom quantity for sku: {} with quantity: {}", item.sku, item.quantity);
+                        return false;
+                    }
+
+                    if (!square.updateInventoryCount(variationId, dbItem.custom_quantity + item.quantity)) {
+                        logger.warn("Actions: Failed to update the square quantity for sku: {} with quantity: {}", item.sku, item.quantity);
+                        return false;
+                    }
+
+                    logger.warn("Actions: Sucessfully updated the custom and square quantity for sku: {} with quantity: {}", item.sku, item.quantity);
+                }
+            }
+        }
+        return true;
     }
 }

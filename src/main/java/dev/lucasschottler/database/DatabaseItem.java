@@ -11,6 +11,7 @@ import dev.lucasschottler.api.controllers.BaseController;
 import dev.lucasschottler.api.square.Square;
 import dev.lucasschottler.lakes.LakesItem;
 import dev.lucasschottler.marketplaces.Amazon;
+import dev.lucasschottler.marketplaces.Ebay;
 
 public class DatabaseItem {
 
@@ -46,9 +47,11 @@ public class DatabaseItem {
     public String marketplaces;
     public Timestamp last_amazon;
     public Timestamp last_ebay;
+    public String ebay_listing_id;
 
     private static final Logger logger = LoggerFactory.getLogger(BaseController.class);
     private static final Square square = new Square();
+    private static final Ebay ebay = new Ebay();
 
     //Extraction of data from database Into an object
     public DatabaseItem(Map<String, Object> item){
@@ -83,6 +86,7 @@ public class DatabaseItem {
         this.marketplaces = (String) item.get("marketplaces");
         this.last_amazon = (Timestamp) item.get("last_amazon");
         this.last_ebay = (Timestamp) item.get("last_ebay");
+        this.ebay_listing_id = (String) item.get("ebay_listing_id");
     }
 
     public DatabaseItem(LakesItem item) {
@@ -129,7 +133,7 @@ public class DatabaseItem {
             }
         }
 
-        if (this.square_variation_id == null) {
+        if (this.square_variation_id == null || this.square_variation_id.isBlank()) {
             //logger.info("Database Item Updating square_variation_id");
             try {
                 this.square_variation_id = square.getVariationID(sku);
@@ -139,6 +143,17 @@ public class DatabaseItem {
                 }
             } catch (Exception e) {
                 logger.error("Database update was unable to get the variation ID! {}", sku);
+            }
+        }
+
+        if(this.ebay_listing_id == null || this.ebay_listing_id.isBlank()){
+            String listingId = ebay.getOffer(this.sku).get(0).getListing().getListingId();
+            if(listingId != null){
+                if(!db.patchItem(this.sku, "ebay_listing_id", listingId)){
+                    logger.warn("Database Item UPDATE failure on attribute = ebay_listing_id: sku = {}", this.sku);
+                }
+            } else {
+                logger.warn("Database update on item's ebay_listing_id was null from ebay!, {}", this.sku);
             }
         }
     }
