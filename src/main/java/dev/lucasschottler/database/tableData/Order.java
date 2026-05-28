@@ -1,8 +1,9 @@
-package dev.lucasschottler.marketplaces.types;
+package dev.lucasschottler.database.tableData;
 
 import java.sql.Timestamp;
 import java.util.List;
 
+import dev.lucasschottler.marketplaces.ingresTypes.Marketplace;
 import lombok.Data;
 
 @Data
@@ -11,8 +12,8 @@ public class Order {
     Marketplace marketplace;
     String status;
     List<Item> items;
-    Timestamp timePlaced;
     Timestamp createdAt;
+    Timestamp updatedAt;
 
     @Data
     public static class Item {

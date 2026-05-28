@@ -1,4 +1,4 @@
-package dev.lucasschottler.marketplaces.types;
+package dev.lucasschottler.marketplaces.ingresTypes;
 
 public enum Marketplace {
     AMAZON("amazon"),

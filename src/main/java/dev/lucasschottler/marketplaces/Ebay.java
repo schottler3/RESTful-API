@@ -14,9 +14,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import dev.lucasschottler.api.Webhook;
-import dev.lucasschottler.database.DatabaseItem;
+import dev.lucasschottler.database.tableData.DatabaseItem;
 import dev.lucasschottler.fulfillment.Policies;
-import dev.lucasschottler.marketplaces.types.EbayOffer;
+import dev.lucasschottler.marketplaces.ingresTypes.EbayOffer;
 import dev.lucasschottler.marketplaces.util.JsonToData;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;

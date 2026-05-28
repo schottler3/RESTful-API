@@ -9,11 +9,11 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import dev.lucasschottler.api.Webhook;
-import dev.lucasschottler.marketplaces.types.AmazonOrder;
-import dev.lucasschottler.marketplaces.types.AmazonOrdersResponse;
-import dev.lucasschottler.marketplaces.types.EbayOffer;
-import dev.lucasschottler.marketplaces.types.EbayOffer.EbayOffersResponse;
-import dev.lucasschottler.marketplaces.types.EbayOrderConfirmation;
+import dev.lucasschottler.marketplaces.ingresTypes.AmazonOrder;
+import dev.lucasschottler.marketplaces.ingresTypes.AmazonOrdersResponse;
+import dev.lucasschottler.marketplaces.ingresTypes.EbayOffer;
+import dev.lucasschottler.marketplaces.ingresTypes.EbayOrderConfirmation;
+import dev.lucasschottler.marketplaces.ingresTypes.EbayOffer.EbayOffersResponse;
 
 public class JsonToData{
 

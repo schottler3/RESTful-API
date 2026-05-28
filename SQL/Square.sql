@@ -19,3 +19,10 @@ CREATE TABLE orders (
 
     CONSTRAINT uq_marketplace_order UNIQUE (marketplace, order_id)
 );
+
+ALTER TABLE bom DROP COLUMN quantity;
+ALTER TABLE bom ADD COLUMN ratio NUMERIC;
+
+SELECT * FROM orders;
+
+SELECT * FROM bom;

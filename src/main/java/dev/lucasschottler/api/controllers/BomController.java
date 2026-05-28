@@ -15,25 +15,27 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import dev.lucasschottler.database.Databasing;
+import dev.lucasschottler.database.queries.BomQueries;
+import dev.lucasschottler.database.tableData.Bom;
 
 @RestController
 @RequestMapping("/superior/bom")
 class BomController {
 
-    private final Databasing db;
+    private final BomQueries bomQueries;
     private static final Logger logger = LoggerFactory.getLogger(BomController.class);
 
-    public BomController(Databasing db) {
-        this.db = db;
+    public BomController(BomQueries bomQueries) {
+        this.bomQueries = bomQueries;
     }
 
-    @GetMapping("/{parent_sku}")
-    public ResponseEntity<List<Map<String, Object>>> getBomData(@PathVariable String parent_sku) {
-        return ResponseEntity.status(HttpStatus.OK).body(db.getBom(parent_sku));
+    @GetMapping("/{child_sku}")
+    public ResponseEntity<List<Bom>> getBomData(@PathVariable String child_sku) {
+        return ResponseEntity.status(HttpStatus.OK).body(bomQueries.getBom(child_sku));
     }
 
-    @PutMapping(value = "/add/{parent_sku}", consumes = "application/json")
-    public ResponseEntity<?> updateBomDependencies(@PathVariable String parent_sku, @RequestBody(required = true) List<Map<String, Object>> requestBody) {
+    @PutMapping(value = "/add/{child_sku}", consumes = "application/json")
+    public ResponseEntity<?> updateBomDependencies(@PathVariable String child_sku, @RequestBody(required = true) List<Map<String, Object>> requestBody) {
 
         if (requestBody == null || requestBody.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Request body is missing or empty"));
@@ -46,28 +48,18 @@ class BomController {
         try {
             for (int i = 0; i < requestBody.size(); i++) {
                 Map<String, Object> bomItem = requestBody.get(i);
-                String child_sku = (String) bomItem.get("child_sku");
-                
-                Object quantityRaw = bomItem.get("quantity");
-                Double quantity;
+                String parent_sku = (String) bomItem.get("parent_sku");
 
-                if (quantityRaw instanceof Number) {
-                    quantity = ((Number) quantityRaw).doubleValue();
-                } else if (quantityRaw instanceof String) {
-                    quantity = Double.parseDouble((String) quantityRaw);
-                } else {
-                    failures.add(bomItem);
-                    continue;
-                }
+                Double ratio = (Double) bomItem.get("ratio");
 
-                if (child_sku == null || quantity == null) {
+                if (parent_sku == null || ratio == null) {
                     logger.warn("Missing required fields in PUT: " + i);
                     failures.add(bomItem);
                     continue;
                 }
 
-                if(quantity == -1){
-                    int removed = db.removeBom(parent_sku, child_sku);
+                if(ratio == -1){
+                    int removed = bomQueries.removeBom(child_sku, parent_sku);
                     if (removed > 0) {
                         logger.info("Success on bom removal - parent_id: {}, child_id: {}", parent_sku, child_sku);
                     } else if (removed == 0) {
@@ -79,11 +71,11 @@ class BomController {
                     continue;
                 }
                 
-                //logger.info("Attempt on bom addition - parent_id: {}, child_id: {}, quantity: {}", parent_sku, child_sku, quantity);
-                if(db.addBom(parent_sku, child_sku, quantity)){
-                    logger.info("Success on bom addition - parent_id: {}, child_id: {}, quantity: {}", parent_sku, child_sku, quantity);
+                //logger.info("Attempt on bom addition - parent_id: {}, child_id: {}, ratio: {}", child_sku, parent_sku, ratio);
+                if(bomQueries.addBom(child_sku, parent_sku, ratio)){
+                    logger.info("Success on bom addition - parent_id: {}, child_id: {}, ratio: {}", parent_sku, child_sku, ratio);
                 } else {
-                    logger.info("Failure on bom addition - parent_id: {}, child_id: {}, quantity: {}", parent_sku, child_sku, quantity);
+                    logger.info("Failure on bom addition - parent_id: {}, child_id: {}, ratio: {}", parent_sku, child_sku, ratio);
                     failures.add(bomItem);
                 }
             }

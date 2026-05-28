@@ -10,18 +10,18 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import dev.lucasschottler.database.DatabaseItem;
-import dev.lucasschottler.database.Databasing;
+import dev.lucasschottler.database.queries.DatabaseItemQueries;
+import dev.lucasschottler.database.tableData.DatabaseItem;
 
 @RestController
 @RequestMapping("/superior/alternative")
 public class AltController {
 
-    private Databasing db;
+    private DatabaseItemQueries databaseItemQueries;
     private static final Logger logger = LoggerFactory.getLogger(AltController.class);
 
-    public AltController(Databasing db){
-        this.db = db;
+    public AltController(DatabaseItemQueries databaseItemQueries){
+        this.databaseItemQueries = databaseItemQueries;
     }
 
     @PostMapping({"", "/"})
@@ -39,7 +39,7 @@ public class AltController {
 
         //logger.info("Alternative received request for getting all mpn: {}, sku: {}", mpn, sku);
 
-        return ResponseEntity.ok(db.getAlts(mpn, sku));
+        return ResponseEntity.ok(databaseItemQueries.getAlts(mpn, sku));
     }
     
     @PostMapping("/add")
@@ -66,10 +66,10 @@ public class AltController {
 
         //logger.info("Alternative received request for adding a new alternative. mpn: {}, altSku: {}", mpn, alt_sku);
 
-        DatabaseItem dbItem = new DatabaseItem(db.getData(mpn));
+        DatabaseItem dbItem = databaseItemQueries.getData(mpn);
         dbItem.sku = alt_sku;
 
-        if(db.createItem(dbItem, marketplaces)){
+        if(databaseItemQueries.createItem(dbItem, marketplaces)){
             response = String.format("{\"message\": \"%s created\"}", alt_sku);
 
            // logger.info("Alternative successfully created with altSku: {}", alt_sku);

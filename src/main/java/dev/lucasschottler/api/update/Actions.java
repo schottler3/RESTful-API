@@ -1,34 +1,38 @@
 package dev.lucasschottler.api.update;
 
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.stereotype.Service;
-
-import com.fasterxml.jackson.databind.JsonNode;
-
 import dev.lucasschottler.api.StateService;
+import dev.lucasschottler.api.Webhook;
 import dev.lucasschottler.api.square.Square;
-import dev.lucasschottler.database.DatabaseItem;
 import dev.lucasschottler.database.Databasing;
+import dev.lucasschottler.database.queries.BomQueries;
+import dev.lucasschottler.database.queries.DatabaseItemQueries;
+import dev.lucasschottler.database.queries.ReportQueries;
+import dev.lucasschottler.database.tableData.Bom;
+import dev.lucasschottler.database.tableData.DatabaseItem;
+import dev.lucasschottler.database.tableData.Order;
 import dev.lucasschottler.lakes.Lakes;
 import dev.lucasschottler.lakes.LakesItem;
 import dev.lucasschottler.marketplaces.Amazon;
 import dev.lucasschottler.marketplaces.Ebay;
-import dev.lucasschottler.marketplaces.types.Order;
 import dev.lucasschottler.marketplaces.Amazon.AmazonNotFoundException;
+import dev.lucasschottler.marketplaces.ingresTypes.Marketplace;
 
 @Service
 public class Actions {
     
     private final Databasing db;
+    private final DatabaseItemQueries databaseItemQueries;
+    private final BomQueries bomQueries;
+    private final ReportQueries reportQueries;
     private static final Logger logger = LoggerFactory.getLogger(Actions.class);
     private final StateService stateService;
     private final Square square;
@@ -36,8 +40,19 @@ public class Actions {
     private Lakes lakes;
     private Amazon amazon = new Amazon();
 
-    public Actions(Databasing db, Lakes lakes, StateService stateService, Square square, Ebay ebay){
+    public Actions(
+        Databasing db, 
+        DatabaseItemQueries databaseItemQueries, 
+        BomQueries bomQueries,
+        ReportQueries reportQueries,
+        Lakes lakes, 
+        StateService stateService, 
+        Square square, Ebay ebay
+    ){
         this.db = db;
+        this.databaseItemQueries = databaseItemQueries;
+        this.bomQueries = bomQueries;
+        this.reportQueries = reportQueries;
         this.stateService = stateService;
         this.square = square;
         this.lakes = lakes;
@@ -46,43 +61,29 @@ public class Actions {
 
     public boolean resetItem(String sku){
 
-        Map<String, Object> item = db.getData(sku);
-
-        if(item == null){
-            logger.warn("Actions failed to reset sku: {} due to no results", sku);
-            return false;
-        }
-
-        DatabaseItem dbItem = new DatabaseItem(item);
+        DatabaseItem dbItem = databaseItemQueries.getData(sku);
 
         LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
 
         if(lakesItem == null){
-            db.addReportDiscItem(dbItem);
+            reportQueries.addReportDiscItem(dbItem);
             return false;
         }
         
-        db.resetItem(lakesItem);
+        databaseItemQueries.resetItem(lakesItem);
 
         return true;
     }
 
     public DatabaseItem updateItem(String sku){
 
-        Map<String, Object> item = db.getData(sku);
-
-        if(item == null){
-            logger.warn("Actions: failed to update item sku: {} No results!", sku);
-            return null;
-        }
-
-        DatabaseItem dbItem = new DatabaseItem(item); 
+        DatabaseItem dbItem = databaseItemQueries.getData(sku);
         
-        List<Map<String,Object>> bom = db.getBom(dbItem.sku);
+        List<Bom> bom = bomQueries.getBom(dbItem.sku);
         Double bulkSplitPrice = getBulkSplitPrice(bom);
 
         if(bulkSplitPrice != null && bulkSplitPrice > 0){
-            dbItem.setPricingFields(bulkSplitPrice, db);
+            dbItem.setPricingFields(bulkSplitPrice, databaseItemQueries);
         }
 
         Integer lakesid = dbItem.lakesid;
@@ -93,28 +94,28 @@ public class Actions {
             LakesItem lakesItem = lakes.getLakesItem(dbItem.lakesid);
 
             if(lakesItem == null){
-                db.addReportDiscItem(dbItem);
+                reportQueries.addReportDiscItem(dbItem);
                 return dbItem;
             }
 
-            dbItem.updateItemUsingLakes(lakesItem, db);
+            dbItem.updateItemUsingLakes(lakesItem, databaseItemQueries);
 
         } else {
             // if there is no associated lakesid then attempt to use the child for data
 
             if(bom != null && bom.size() > 0){
-                String child_sku = (String) bom.get(0).get("child_sku");
+                String child_sku = bom.get(0).child_sku;
 
                 if(child_sku != null){
-                    DatabaseItem dbChildItem = new DatabaseItem(db.getData(child_sku));
+                    DatabaseItem dbChildItem = databaseItemQueries.getData(child_sku);
 
                     if(dbChildItem.lakesid != null){
                         LakesItem lakesChildItem = lakes.getLakesItem(dbChildItem.lakesid);
 
                         if(lakesChildItem == null){
-                            db.addReportDiscItem(dbItem);
+                            reportQueries.addReportDiscItem(dbItem);
                         } else {
-                            dbItem.updateItemUsingLakes(lakesChildItem, db);
+                            dbItem.updateItemUsingLakes(lakesChildItem, databaseItemQueries);
                         }
 
                     }
@@ -122,7 +123,7 @@ public class Actions {
             }
         }
 
-        dbItem.updateItem(db);
+        dbItem.updateItem(databaseItemQueries);
 
         return dbItem;
     }
@@ -171,13 +172,7 @@ public class Actions {
     }
 
     public void updateInventory() {
-        List<Map<String, Object>> data = db.queryDatabase(null, 12000, null);
-
-        if (data.isEmpty()) {
-            logger.warn("Actions database data is empty!");
-            stateService.setState("isUpdating", "false");
-            return;
-        }
+        List<DatabaseItem> data = databaseItemQueries.queryDatabase(null, 12000, null);
 
         ExecutorService executor = Executors.newFixedThreadPool(12);
 
@@ -203,14 +198,12 @@ public class Actions {
         }
     }
 
-    private void processItem(Map<String, Object> item) {
+    private void processItem(DatabaseItem dbItem) {
         try {
-            DatabaseItem dbItem = new DatabaseItem(item);
-
             if (dbItem.square_variation_id != null) {
                 Integer square_quantity = square.getInventoryCountByVariationID(dbItem.square_variation_id);
                 if (square_quantity != null) {
-                    db.updateCustomQuantity(dbItem.sku, square_quantity);
+                    databaseItemQueries.updateCustomQuantity(dbItem.sku, square_quantity);
                     dbItem.custom_quantity = square_quantity;
                 }
             }
@@ -218,35 +211,35 @@ public class Actions {
             updateAndPushItem(dbItem.sku);
 
         } catch (Exception e) {
-            logger.error("Actions: Exception processing item raw: {}", item, e);
+            logger.error("Actions: Exception processing item raw: {}", dbItem, e);
         }
     }
 
-    public Double getBulkSplitPrice(List<Map<String,Object>> bom ){
+    public Double getBulkSplitPrice(List<Bom> bom ){
         Double bulkSplitPrice = 0.0;
 
         if(bom != null && !bom.isEmpty()){
 
-            for (Map<String,Object> dependency : bom){
-                String dependency_sku = (String) dependency.get("child_sku");
-                if(dependency_sku != null){
-                    updateItem(dependency_sku);
+            for (Bom bomItem : bom){
+                String parent_sku = bomItem.parent_sku;
+                if(parent_sku != null){
+                    updateItem(parent_sku);
 
-                    Map<String, Object> dependency_data;
+                    DatabaseItem parentDbItem;
 
                     try {
-                        dependency_data = db.getData(dependency_sku);
+                        parentDbItem = databaseItemQueries.getData(parent_sku);
                     } catch (EmptyResultDataAccessException e) {
-                        logger.warn("Actions - Bom: dependency not found in database: {}", dependency_sku);
+                        logger.warn("Actions - Bom: dependency not found in database: {}", parent_sku);
                         continue;
                     }
 
-                    Double lakes_price = ((Number) dependency_data.get("lakes_price")).doubleValue();
-                    Double quantity = ((Number) dependency.get("quantity")).doubleValue();
+                    Double lakes_price = parentDbItem.lakes_price;
+                    Double ratio = bomItem.ratio;
 
-                    if(quantity != null){
+                    if(ratio != null){
                         if(lakes_price != null && lakes_price > 0){
-                            bulkSplitPrice += lakes_price * quantity;
+                            bulkSplitPrice += lakes_price * ratio;
                         }
                     }
                 }
@@ -260,13 +253,7 @@ public class Actions {
 
     public boolean updateSquareInventory(String sku, int quantity){
 
-        Map<String, Object> data = db.getData(sku);
-
-        if(data == null){
-            return true;
-        }
-
-        DatabaseItem dbItem = new DatabaseItem(data);
+        DatabaseItem dbItem = databaseItemQueries.getData(sku);
 
         String variationId = dbItem.square_variation_id;
 
@@ -277,59 +264,55 @@ public class Actions {
         if(variationId == null || variationId.isBlank()){
             return false;
         } else {
-            db.patchItem(sku, "custom_quantity", quantity);
+            databaseItemQueries.patchItem(sku, "custom_quantity", quantity);
             return square.updateInventoryCount(variationId, quantity);
         }
 
     }
 
     public boolean updateSquareInventory(String orderId) {
-
         Order order = db.getOrder(orderId);
-        if(order.getStatus().equals("UNSHIPPED")){
+        for (Order.Item item : order.getItems()) {
 
-            for (Order.Item item : order.getItems()) {
+            if(order.getMarketplace().equals(Marketplace.AMAZON)){
+                Webhook.sendAmazonMessage(String.format("Actions: An Amazon order item has been placed. Sku: %s with Quantity: %d @ Time: %s", item.sku, item.quantity, order.getUpdatedAt().toString()));
+            } else {
+                Webhook.sendEbayMessage(String.format("Actions: An Ebay order item has been placed. Sku: %s with Quantity: %d @ Time: %s", item.sku, item.quantity, order.getUpdatedAt().toString()));
+            }
 
-                Map<String, Object> data = db.getData(item.sku);
-                if (data == null) {
-                    logger.warn("Actions: The dbItem was not found from sku: {}", item.sku);
+            DatabaseItem dbItem = databaseItemQueries.getData(item.sku);
+            String variationId = dbItem.square_variation_id;
+
+            if (variationId == null || variationId.isBlank()) {
+                logger.info("Actions: No variationId was found for this item: {}", item.sku);
+                variationId = square.getVariationID(item.sku);
+            }
+
+            if (variationId == null || variationId.isBlank()) {
+                logger.info("Actions: This item is not in square inventory: {}", item.sku);
+                return false;
+            }
+
+            if(dbItem.custom_quantity != null && dbItem.custom_quantity >= 1){
+
+                logger.info("Actions: Found a square_variation_id and is updating db and square!: {}, {}", item.sku, item.quantity);
+
+                int quantity = dbItem.custom_quantity - item.quantity;
+                if(quantity < 0){
+                    quantity = 0;
+                }
+
+                if(!databaseItemQueries.patchItem(item.sku, "custom_quantity", quantity)){
+                    logger.warn("Actions: Failed to update the custom quantity for sku: {} with quantity: {}", item.sku, item.quantity);
                     return false;
                 }
 
-                DatabaseItem dbItem = new DatabaseItem(data);
-                String variationId = dbItem.square_variation_id;
-
-                if (variationId == null || variationId.isBlank()) {
-                    logger.info("Actions: No variationId was found for this item: {}", item.sku);
-                    variationId = square.getVariationID(item.sku);
-                }
-
-                if (variationId == null || variationId.isBlank()) {
-                    logger.info("Actions: This item is not in square inventory: {}", item.sku);
+                if (!square.updateInventoryCount(variationId, dbItem.custom_quantity - quantity)) {
+                    logger.warn("Actions: Failed to update the square quantity for sku: {} with quantity: {}", item.sku, item.quantity);
                     return false;
                 }
 
-                if(dbItem.custom_quantity != null && dbItem.custom_quantity >= 1){
-
-                    logger.info("Actions: Found a square_variation_id and is updating db and square!: {}, {}", item.sku, item.quantity);
-
-                    int quantity = dbItem.custom_quantity - item.quantity;
-                    if(quantity < 0){
-                        quantity = 0;
-                    }
-
-                    if(!db.patchItem(item.sku, "custom_quantity", quantity)){
-                        logger.warn("Actions: Failed to update the custom quantity for sku: {} with quantity: {}", item.sku, item.quantity);
-                        return false;
-                    }
-
-                    if (!square.updateInventoryCount(variationId, dbItem.custom_quantity - quantity)) {
-                        logger.warn("Actions: Failed to update the square quantity for sku: {} with quantity: {}", item.sku, item.quantity);
-                        return false;
-                    }
-
-                    logger.warn("Actions: Sucessfully updated the custom and square quantity for sku: {} with quantity: {}", item.sku, item.quantity);
-                }
+                logger.warn("Actions: Sucessfully updated the custom and square quantity for sku: {} with quantity: {}", item.sku, item.quantity);
             }
         }
 
@@ -342,14 +325,15 @@ public class Actions {
 
             for (Order.Item item : order.getItems()) {
 
-                Map<String, Object> data = db.getData(item.sku);
-                if (data == null) {
-                    logger.warn("Actions: The dbItem was not found from sku: {}", item.sku);
-                    return false;
+                if(order.getMarketplace().equals(Marketplace.AMAZON)){
+                    Webhook.sendAmazonMessage(String.format("Actions: An Amazon item has been cancelled. Sku: %s with Quantity: %d @ Time: %s", item.sku, item.quantity, order.getUpdatedAt().toString()));
+                } else {
+                    Webhook.sendEbayMessage(String.format("Actions: An Ebay item has been cancelled. Sku: %s with Quantity: %d @ Time: %s", item.sku, item.quantity, order.getUpdatedAt().toString()));
                 }
-
-                DatabaseItem dbItem = new DatabaseItem(data);
+                
+                DatabaseItem dbItem = databaseItemQueries.getData(item.sku);
                 String variationId = dbItem.square_variation_id;
+                int squareQuantity = square.getInventoryCountByMpn(dbItem.mpn);
 
                 if (variationId == null || variationId.isBlank()) {
                     logger.info("Actions: No variationId was found for this item: {}", item.sku);
@@ -360,21 +344,18 @@ public class Actions {
                     logger.info("Actions: This item is not in square inventory: {}", item.sku);
                     return false;
                 }
+                
+                if (!square.updateInventoryCount(variationId, squareQuantity + item.quantity)) {
+                    logger.warn("Actions: Failed to update the square quantity for sku: {} with quantity: {}", item.sku, item.quantity);
+                    return false;
+                }
 
-                if(dbItem.custom_quantity != null){
-
+                if(dbItem.square_variation_id != null && !dbItem.square_variation_id.isBlank()){
                     logger.info("Actions: Found a square_variation_id and is updating db and square!: {}, {}", item.sku, item.quantity);
-
-                    if(!db.patchItem(item.sku, "custom_quantity", dbItem.custom_quantity + item.quantity)){
+                    if(!databaseItemQueries.patchItem(item.sku, "custom_quantity", squareQuantity + item.quantity)){
                         logger.warn("Actions: Failed to update the custom quantity for sku: {} with quantity: {}", item.sku, item.quantity);
                         return false;
                     }
-
-                    if (!square.updateInventoryCount(variationId, dbItem.custom_quantity + item.quantity)) {
-                        logger.warn("Actions: Failed to update the square quantity for sku: {} with quantity: {}", item.sku, item.quantity);
-                        return false;
-                    }
-
                     logger.warn("Actions: Sucessfully updated the custom and square quantity for sku: {} with quantity: {}", item.sku, item.quantity);
                 }
             }

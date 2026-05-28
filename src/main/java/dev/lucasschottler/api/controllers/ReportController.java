@@ -14,9 +14,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import dev.lucasschottler.api.report.Report;
-import dev.lucasschottler.database.DatabaseItem;
 import dev.lucasschottler.database.Databasing;
+import dev.lucasschottler.database.queries.DatabaseItemQueries;
+import dev.lucasschottler.database.queries.ReportQueries;
+import dev.lucasschottler.database.tableData.DatabaseItem;
+import dev.lucasschottler.database.tableData.ReportItem;
 import dev.lucasschottler.lakes.Lakes;
 import dev.lucasschottler.lakes.LakesItem;
 
@@ -24,15 +26,17 @@ import dev.lucasschottler.lakes.LakesItem;
 @RequestMapping("/superior/report")
 public class ReportController {
 
-    private Databasing db;
-    private Lakes lakes;
+    private final Lakes lakes;
+    private final Databasing db;
+    private final DatabaseItemQueries databaseItemQueries;
+    private final ReportQueries reportQueries;
     private final Logger logger = LoggerFactory.getLogger(ReportController.class);
-    private Report report;
 
-    public ReportController(Databasing db, Lakes lakes, Report report){
-        this.db = db;
+    public ReportController(Lakes lakes, Databasing db, DatabaseItemQueries databaseItemQueries, ReportQueries reportQueries){
         this.lakes = lakes;
-        this.report = report;
+        this.db = db;
+        this.databaseItemQueries = databaseItemQueries;
+        this.reportQueries = reportQueries;
     }
 
     @PostMapping({"", "/"})
@@ -41,7 +45,7 @@ public class ReportController {
         String type = requestBody.get("type");
 
         if(type != null && !type.isBlank()){
-            List<Map<String,Object>> retrievedItems = db.getReport(type);
+            List<Map<String,Object>> retrievedItems = reportQueries.getReport(type);
 
             if (retrievedItems != null && !retrievedItems.isEmpty()) {
                 return ResponseEntity.ok(retrievedItems);
@@ -55,7 +59,7 @@ public class ReportController {
     @GetMapping("/new")
     public ResponseEntity<List<LakesItem>> getNewReport() {
 
-        List<LakesItem> newItems = report.getNewItems();
+        List<LakesItem> newItems = ReportItem.getNewItems(db, reportQueries);
 
         if (newItems == null || newItems.isEmpty()) {
             return ResponseEntity.noContent().build();
@@ -75,7 +79,7 @@ public class ReportController {
         if(lakesid == null){
             //logger.info("ReportController: Received request to add all new report item to inventory");
 
-            List<Integer> allNewLakesids = db.getAllReportIds("new");
+            List<Integer> allNewLakesids = reportQueries.getAllReportIds("new");
 
             for (Integer newItem : allNewLakesids) {
                 LakesItem item = lakes.getLakesItem(newItem);
@@ -86,7 +90,7 @@ public class ReportController {
 
                 //logger.info("ReportController: Successfully made and casted DatabaseItem from LakesItem. sku: {}", dbItem.sku);
 
-                if(db.createItem(dbItem, marketplaces)){
+                if(databaseItemQueries.createItem(dbItem, marketplaces)){
                     logger.info("Report item added successfully: {}", item.lakesid);
                 }
                 else{
@@ -112,7 +116,7 @@ public class ReportController {
 
         //logger.info("ReportController: Successfully made and casted DatabaseItem from LakesItem. sku: {}", dbItem.sku);
 
-        if(db.createItem(dbItem, marketplaces) && db.deleteReportItem(Integer.parseInt(lakesid))){
+        if(databaseItemQueries.createItem(dbItem, marketplaces) && reportQueries.deleteReportItem(Integer.parseInt(lakesid))){
             logger.info("Report item added successfully and deleted from report: {}", lakesid);
             response.put("status", "success");
             return ResponseEntity.ok(response);
@@ -128,7 +132,7 @@ public class ReportController {
 
         //logger.info("Report: Getting potentially existing skus for a given sku: {}", sku);
 
-        List<Map<String,Object>> potentialMatches = db.checkReportForExistingSku(sku);
+        List<Map<String,Object>> potentialMatches = reportQueries.checkReportForExistingSku(sku);
 
         if (potentialMatches == null || potentialMatches.isEmpty()) {
             logger.info("Report: Generated list for potentially existing skus for a given sku: {}, but it was empty!", sku);

@@ -1,18 +1,24 @@
-package dev.lucasschottler.database;
+package dev.lucasschottler.database.tableData;
 
 import java.sql.Timestamp;
 import java.util.HashMap;
-import java.util.Map;
-
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import dev.lucasschottler.api.controllers.BaseController;
 import dev.lucasschottler.api.square.Square;
+import dev.lucasschottler.database.Databasing;
+import dev.lucasschottler.database.queries.BomQueries;
+import dev.lucasschottler.database.queries.DatabaseItemQueries;
 import dev.lucasschottler.lakes.LakesItem;
 import dev.lucasschottler.marketplaces.Amazon;
 import dev.lucasschottler.marketplaces.Ebay;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
+@Data
+@NoArgsConstructor
 public class DatabaseItem {
 
     private final Integer DEFAULT_FULFILLMENT = 5;
@@ -49,45 +55,9 @@ public class DatabaseItem {
     public Timestamp last_ebay;
     public String ebay_listing_id;
 
-    private static final Logger logger = LoggerFactory.getLogger(BaseController.class);
+    private static final Logger logger = LoggerFactory.getLogger(DatabaseItem.class);
     private static final Square square = new Square();
     private static final Ebay ebay = new Ebay();
-
-    //Extraction of data from database Into an object
-    public DatabaseItem(Map<String, Object> item){
-
-        this.lakesid = (Integer) item.get("lakesid");
-        this.width = (Double) item.get("width");
-        this.length = (Double) item.get("length");
-        this.height = (Double) item.get("height");
-        this.weight = (Double) item.get("weight");
-        this.type = (String) item.get("type");
-        this.mpn = (String) item.get("mpn");
-        this.title = (String) item.get("title");
-        this.description = (String) item.get("description");
-        this.upc = (String) item.get("upc");
-        this.quantity = (Integer) item.get("quantity");
-        this.custom_quantity = (Integer) item.get("custom_quantity");
-        this.sku = (String) item.get("sku");
-        this.updated_at = (Timestamp) item.get("updated_at");
-        this.images = (String) item.get("images");
-        this.package_width = (Double) item.get("package_width");
-        this.package_length = (Double) item.get("package_length");
-        this.package_height = (Double) item.get("package_height");
-        this.package_weight = (Double) item.get("package_weight");
-        this.minimum_price = (Double) item.get("minimum_price");
-        this.calculated_price = (Double) item.get("calculated_price");
-        this.maximum_price = (Double) item.get("maximum_price");
-        this.lakes_price = (Double) item.get("lakes_price");
-        this.custom_price = (Double) item.get("custom_price");
-        this.fulfillment = (Integer) item.get("fulfillment");
-        this.square_variation_id = (String) item.get("square_variation_id");
-        this.barcode_title = (String) item.get("barcode_title"); 
-        this.marketplaces = (String) item.get("marketplaces");
-        this.last_amazon = (Timestamp) item.get("last_amazon");
-        this.last_ebay = (Timestamp) item.get("last_ebay");
-        this.ebay_listing_id = (String) item.get("ebay_listing_id");
-    }
 
     public DatabaseItem(LakesItem item) {
         this.lakesid = item.lakesid;
@@ -111,12 +81,10 @@ public class DatabaseItem {
         this.maximum_price = amazonPrices.get("maximum_price");
     }
 
-    public void updateItem(Databasing db) {
+    public void updateItem(DatabaseItemQueries db) {
         Integer squareQuantity = square.getInventoryCountByMpn(this.mpn);
 
         logger.info("DatabaseItem: SquareQuantity = {}. sku = {}", squareQuantity, this.sku);
-
-        //TODO: Make the custom quantity dependant on the bom ratio
 
         if (squareQuantity != null && !squareQuantity.equals(this.custom_quantity)) {
             logger.info("Custom Quantity (Square) Updated: {} -> {}", this.custom_quantity, squareQuantity);
@@ -158,7 +126,7 @@ public class DatabaseItem {
         }
     }
 
-    public void updateItemUsingLakes(LakesItem lakesItem, Databasing db) {
+    public void updateItemUsingLakes(LakesItem lakesItem, DatabaseItemQueries db) {
 
         if (this.quantity == null || !this.quantity.equals(lakesItem.quantity)) {
             //logger.info("Quantity Updated: {} -> {}", this.quantity, lakesItem.quantity);
@@ -241,7 +209,7 @@ public class DatabaseItem {
         }
     }
 
-    public void setPricingFields(Double price, Databasing db){
+    public void setPricingFields(Double price, DatabaseItemQueries db){
         //minimum_price, middle_price, maximum_price
         HashMap<String,Double> amazonPrices = Amazon.getPrices(price);
 
@@ -258,6 +226,23 @@ public class DatabaseItem {
         if (!db.patchItem(this.sku, "maximum_price", String.valueOf(this.maximum_price))){
             logger.warn("Database Item UPDATE failure on attribute maximum_price: sku = {}", this.sku);
         }
+    }
+
+    public int getQuantity(DatabaseItemQueries db, BomQueries bomQueries){
+        if(this.square_variation_id != null && !this.square_variation_id.isBlank()){
+            return square.getInventoryCountByMpn(this.mpn);
+        }
+
+        List<Bom> bomData = bomQueries.getBom(this.mpn);
+
+        if(bomData != null && !bomData.isEmpty()){
+            for(Bom bomItem : bomData){
+                DatabaseItem parentItem = db.getData(bomItem.parent_sku);
+            }
+        }
+
+        return 0;
+        
     }
     
     @Override

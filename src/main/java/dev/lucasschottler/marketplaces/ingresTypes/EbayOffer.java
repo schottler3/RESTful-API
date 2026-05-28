@@ -1,4 +1,4 @@
-package dev.lucasschottler.marketplaces.types;
+package dev.lucasschottler.marketplaces.ingresTypes;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;

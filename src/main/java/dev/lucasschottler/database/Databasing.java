@@ -1,10 +1,6 @@
 package dev.lucasschottler.database;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -14,26 +10,20 @@ import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import dev.lucasschottler.api.Webhook;
-import dev.lucasschottler.lakes.LakesItem;
-import dev.lucasschottler.marketplaces.Amazon;
-import dev.lucasschottler.marketplaces.types.AmazonOrder;
-import dev.lucasschottler.marketplaces.types.EbayOrderConfirmation;
-import dev.lucasschottler.marketplaces.types.Marketplace;
-import dev.lucasschottler.marketplaces.types.Order;
+import dev.lucasschottler.database.tableData.Order;
+import dev.lucasschottler.marketplaces.ingresTypes.AmazonOrder;
+import dev.lucasschottler.marketplaces.ingresTypes.EbayOrderConfirmation;
+import dev.lucasschottler.marketplaces.ingresTypes.Marketplace;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Timestamp;
-import java.sql.Types;
 import java.time.Instant;
-import java.time.LocalDateTime;
 
 
 @Service
@@ -42,386 +32,12 @@ public class Databasing {
     private static final Logger logger = LoggerFactory.getLogger(Databasing.class);   
     private static final ObjectMapper mapper = new ObjectMapper();
 
-    private static final Set<String> integerColumns = Set.of("quantity", "custom_quantity", "fulfillment");
-
-    private static final Set<String> doubleColumns = Set.of(
-        "width", "length", "height", "weight",
-        "package_width", "package_length", "package_height", "package_weight",
-        "minimum_price", "calculated_price", "maximum_price", "lakes_price", "custom_price"
-    );
-
-    private static final Set<String> allowedColumns = Set.of(
-        // Integer columns
-        "quantity", "custom_quantity", "fulfillment",
-        // Double columns
-        "width", "length", "height", "weight",
-        "package_width", "package_length", "package_height", "package_weight",
-        "minimum_price", "calculated_price", "maximum_price", "lakes_price", "custom_price",
-        "bulk_split_price",
-        // String columns
-        "type", "mpn", "title", "description", "upc", "sku",
-        "images", "barcode_title", "marketplaces", "square_variation_id", "ebay_listing_id"
-    );
-
     private static final Set<String> allowedMarketplaces = Set.of("amazon", "ebay");
 
     private final JdbcTemplate jdbcTemplate;
       
     public Databasing(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
-    }
-    
-    public java.util.Map<String, Object> getData(String sku) {
-        String sql = "SELECT * FROM superior WHERE sku = ? LIMIT 1";
-        try{
-            return jdbcTemplate.queryForMap(sql, sku);
-        } catch (Exception e){
-            logger.info("Databasing: Could not find superior item with sku: {}", sku);
-            return null;
-        }
-    }
-
-    public java.util.Map<String, Object> getData(int lakesid) {
-        String sql = "SELECT * FROM superior WHERE lakesid LIKE ?";
-        return jdbcTemplate.queryForMap(sql, lakesid);
-    }
-
-    public List<Map<String, Object>> queryDatabase(String query, int limit, String time) {
-
-        String order = "sku ASC";
-
-        if(time != null){
-            if(time.equals("newest")){
-                order = "updated_at DESC";
-            }
-            else if(time.equals("oldest")){
-                order = "updated_at ASC";
-            }
-        }
-        
-        // Handle empty query - return all results with ordering
-        if (query == null || query.trim().isEmpty()) {
-            // Must use string concatenation for ORDER BY and LIMIT
-            String sql = "SELECT * FROM superior ORDER BY " + order + " LIMIT " + limit;
-            return jdbcTemplate.queryForList(sql);
-        }
-        
-        // Try exact SKU match first
-        String exactMatchSql = "SELECT * FROM superior WHERE sku = ? ORDER BY " + order + " LIMIT " + limit;
-        List<Map<String, Object>> result = jdbcTemplate.queryForList(exactMatchSql, query);
-
-        if (!result.isEmpty()) {
-            return result;
-        }
-
-        // Fall back to substring match
-        String likeMatchSql = "SELECT * FROM superior WHERE sku ILIKE ? ORDER BY " + order + " LIMIT " + limit;
-        result = jdbcTemplate.queryForList(likeMatchSql, "%" + query + "%");
-
-        if (!result.isEmpty()) {
-            return result;
-        }
-        
-        // Fall back to fuzzy search across all fields
-        String sql = "SELECT * FROM superior WHERE" +
-                " CAST(lakesid AS TEXT) ILIKE ? OR" +
-                " CAST(width AS TEXT) ILIKE ? OR" +
-                " CAST(length AS TEXT) ILIKE ? OR" +
-                " CAST(height AS TEXT) ILIKE ? OR" +
-                " CAST(weight AS TEXT) ILIKE ? OR" +
-                " type ILIKE ? OR" +
-                " mpn ILIKE ? OR" +
-                " title ILIKE ? OR" +
-                " description ILIKE ? OR" +
-                " upc ILIKE ? OR" +
-                " CAST(quantity AS TEXT) ILIKE ? OR" +
-                " sku ILIKE ? OR" +
-                " CAST(updated_at AS TEXT) ILIKE ?" +
-                " ORDER BY " + order + " LIMIT " + limit;
-
-        String pattern = "%" + query + "%";
-        Object[] params = new Object[13];
-        Arrays.fill(params, 0, 13, pattern);
-
-        List<Map<String, Object>> results = jdbcTemplate.queryForList(sql, params);
-        return results.isEmpty() ? new ArrayList<>() : results;
-    }
-
-    public boolean patchItem(String sku, String attribute, Object data) {
-
-        if (!allowedColumns.contains(attribute)) {
-            logger.warn("Invalid attribute: {}", attribute);
-            return false;
-        }
-
-        String sql = "UPDATE superior SET " + attribute + " = ?, updated_at = CURRENT_TIMESTAMP WHERE sku = ?";
-        logger.debug("SQL: {}", sql);
-
-        try {
-            int rowsAffected;
-
-            if (data == null) {
-                int sqlType = Types.VARCHAR;
-                if (integerColumns.contains(attribute)) sqlType = Types.INTEGER;
-                else if (doubleColumns.contains(attribute)) sqlType = Types.DOUBLE;
-                rowsAffected = jdbcTemplate.update(sql, new Object[]{null, sku}, new int[]{sqlType, Types.VARCHAR});
-
-            } else if (integerColumns.contains(attribute)) {
-                int value = (data instanceof Integer) ? (Integer) data : Integer.parseInt(data.toString());
-                rowsAffected = jdbcTemplate.update(sql, value, sku);
-
-            } else if (doubleColumns.contains(attribute)) {
-                double value = (data instanceof Double) ? (Double) data : Double.parseDouble(data.toString());
-                rowsAffected = jdbcTemplate.update(sql, value, sku);
-
-            } else {
-                rowsAffected = jdbcTemplate.update(sql, data.toString(), sku);
-            }
-
-            return rowsAffected > 0;
-
-        } catch (NumberFormatException e) {
-            logger.error("Invalid number format for attribute {}: {}", attribute, data);
-            return false;
-        } catch (Exception e) {
-            logger.error("Error updating attribute {}: {}", attribute, e.getMessage(), e);
-            return false;
-        }
-    }
-
-    public boolean createItem(DatabaseItem dbItem, String marketplaces) {
-        //logger.info("Databasing: Creating new item with sku: {}", dbItem.sku);
-
-        String sql = """
-            INSERT INTO superior (
-                lakesid, width, length, height, weight, type, mpn, title, description,
-                upc, quantity, custom_quantity, sku, images, package_width,
-                package_length, package_height, package_weight,
-                minimum_price, calculated_price, maximum_price, lakes_price,
-                custom_price, fulfillment, square_variation_id, marketplaces
-            ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-            )
-        """;
-
-        try {
-            int updated = jdbcTemplate.update(sql,
-                dbItem.lakesid, dbItem.width, dbItem.length, dbItem.height, dbItem.weight,
-                dbItem.type, dbItem.mpn, dbItem.title, dbItem.description, dbItem.upc,
-                dbItem.quantity, dbItem.custom_quantity, dbItem.sku, dbItem.images,
-                dbItem.package_width, dbItem.package_length, dbItem.package_height, 
-                dbItem.package_weight, dbItem.minimum_price, dbItem.calculated_price, dbItem.maximum_price,
-                dbItem.lakes_price, dbItem.custom_price, dbItem.fulfillment, dbItem.square_variation_id, marketplaces
-            );
-
-            //logger.info("Databasing: createItem created with sku: {}", dbItem.sku);
-
-            return updated > 0;
-
-        } catch (Exception e) {
-            logger.error("Databasing: createItem failed for sku {}: {}", dbItem.sku, e.getMessage());
-            return false;
-        }
-    }
-
-    public boolean createItem(String sku, String marketplaces){
-        String sql = "INSERT INTO superior (sku, marketplaces) VALUES (?,?);";
-
-        return jdbcTemplate.update(sql, sku, marketplaces) > 0;
-    }
-
-    public boolean deleteItem(String sku) {
-        
-        String sql = "DELETE FROM superior WHERE sku=?;";
-
-        int rows = jdbcTemplate.update(sql, sku);
-
-        if(rows > 0){
-            return true;
-        }
-        else {
-            return false;
-        }
-
-    }
-
-    public boolean updateCustomQuantity(String sku, int quantity){
-
-        //logger.info("Databasing: Updating Custom quantity on sku = {} with q = {}", sku, quantity);
-
-        String sql = "UPDATE superior SET custom_quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE sku = ?";
-
-        if(jdbcTemplate.update(sql, quantity, sku) > 0){
-            logger.info("Databasing: Custom quantity updated successfully for item: {} with quantity: {}", sku, quantity);
-            return true;
-        }
-        else {
-            logger.info("Databasing: Custom quantity update failure for item: {} with quantity: {}", sku, quantity);
-            return false;
-        }
-    }
-
-    public boolean resetItem(LakesItem lakesItem) {
-        HashMap<String, Double> amazonPrices = Amazon.getPrices(lakesItem.price);
-        if (amazonPrices == null) {
-            logger.error("Amazon prices could not be retrieved for lakesItem with ID: {}", lakesItem.lakesid);
-            return false;
-        }
-        
-        String sql = """
-            UPDATE superior
-            SET 
-                width = ?,
-                length = ?,
-                height = ?,
-                weight = ?,
-                type = ?,
-                mpn = ?,
-                title = ?,
-                description = ?,
-                upc = ?,
-                quantity = ?,
-                custom_quantity = NULL,
-                sku = ?,
-                package_width = NULL,
-                package_length = NULL,
-                package_height = NULL,
-                package_weight = NULL,
-                images = ?,
-                minimum_price = ?,
-                calculated_price = ?,
-                maximum_price = ?,
-                lakes_price = ?,
-                fulfillment = 5
-            WHERE lakesid = ?
-        """;
-        
-        try {
-            int rowsAffected = jdbcTemplate.update(sql,
-                lakesItem.width,
-                lakesItem.length,
-                lakesItem.height,
-                lakesItem.weight,
-                lakesItem.type,
-                lakesItem.mpn,
-                lakesItem.title,
-                lakesItem.description,
-                lakesItem.upc,
-                lakesItem.quantity,
-                lakesItem.sku,
-                lakesItem.imageLink,
-                amazonPrices.get("minimum_price"),
-                amazonPrices.get("middle_price"),
-                amazonPrices.get("maximum_price"),
-                lakesItem.price,
-                lakesItem.lakesid
-            );
-            
-            return rowsAffected > 0;
-        } catch (Exception e) {
-            logger.error("Failed to reset item {}: {}", lakesItem.lakesid, e.getMessage());
-            return false;
-        }
-    }
-
-    public List<java.util.Map<String, Object>> getBom(String parent_sku){
-        String sql = "SELECT * FROM bom WHERE parent_sku = ?";
-
-        return jdbcTemplate.queryForList(sql, parent_sku);
-    }
-
-    public boolean addBom(String parent_sku, String child_sku, Double quantity){
-
-        //logger.info("Adding BOM item to parent {}: {} q: {}", parent_sku, child_sku, quantity);
-
-        try{
-            String sql = "INSERT INTO bom (parent_sku, child_sku, quantity) VALUES (?, ?, ?) " +
-                        "ON CONFLICT (parent_sku, child_sku) " +
-                        "DO UPDATE SET quantity = EXCLUDED.quantity";
-
-            return jdbcTemplate.update(sql, parent_sku, child_sku, quantity) > 0;
-        } catch (Exception e) {
-            logger.error("Error adding BOM item to parent {}: {} q: {} e: {}", parent_sku, child_sku, quantity, e);
-            return false;
-        }
-    }
-
-    public int removeBom(String parent_sku, String child_sku){
-        //logger.info("Removing BOM item to parent {}: {}", parent_sku, child_sku);
-
-        try{
-            String sql = "DELETE FROM bom WHERE parent_sku = ? AND child_sku = ?";
-            return jdbcTemplate.update(sql, parent_sku, child_sku);
-        } catch (Exception e) {
-            logger.error("Error removing BOM item to parent {}: {} e: {}", parent_sku, child_sku, e);
-            return -1;
-        }
-    }
-
-    public List<java.util.Map<String,Object>> getAlts(String sku, String mpn){
-        //logger.info("Databasing received request for all alternatives for parentSku: {}", mpn);
-        
-        String sql = "SELECT * FROM superior WHERE mpn = ? AND sku != ?;";
-
-        List<java.util.Map<String,Object>> alternatives = jdbcTemplate.queryForList(sql,mpn, sku);
-
-       // logger.info("Databasing retrieved all alternatives for parentSku: {} - {} ", mpn, alternatives.toString());
-
-        return alternatives;
-    }
-
-    public boolean addReportNewItem(LakesItem item) {
-        String sql = "INSERT INTO report (lakesid, title, description, sku, lakes_price, images, quantity, date_added, type) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new') ON CONFLICT (lakesid) DO NOTHING";
-        return jdbcTemplate.update(sql, item.lakesid, item.title, item.description, item.sku, item.price, item.imageLink, item.quantity, Timestamp.valueOf(LocalDateTime.now())) > 0;
-    }
-
-    public boolean addReportDiscItem(DatabaseItem item) {
-        String sql = "INSERT INTO report (lakesid, title, description, sku, lakes_price, lakes_images, quantity, date_added, type) " +
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'disc') ON CONFLICT (lakesid) DO NOTHING";
-        return jdbcTemplate.update(sql, item.lakesid, item.title, item.description, item.sku, item.lakes_price, item.images, item.quantity, Timestamp.valueOf(LocalDateTime.now())) > 0;
-    }
-
-    public boolean deleteReportItem(int lakesid){
-        String sql = "DELETE FROM report WHERE lakesid=?";
-
-        return jdbcTemplate.update(sql,lakesid) > 0;
-    }
-
-    public List<Map<String,Object>> getReport(String type){
-
-        String sql = "SELECT * FROM report WHERE type=? ORDER BY sku ASC";
-
-        return jdbcTemplate.queryForList(sql, type);
-    }
-
-    public Map<String, Object> getReport(int lakesid, String type) {
-        String sql = "SELECT * FROM report WHERE lakesid = ? AND type = ? LIMIT 1";
-        try {
-            return jdbcTemplate.queryForMap(sql, lakesid, type);
-        } catch (EmptyResultDataAccessException e) {
-            return null; 
-        }
-    }
-
-    public List<Integer> getAllReportIds(String type){
-
-        String sql = "SELECT lakesid FROM report WHERE type=?";
-
-        return jdbcTemplate.queryForList(sql, Integer.class, type);
-
-    }
-
-    public List<Map<String,Object>> checkReportForExistingSku(String sku) {
-
-        if (sku == null || sku.isBlank()) {
-            return List.of();
-        }
-
-        String safeSku = sku.replace("%", "\\%").replace("_", "\\_");
-        String sql = "SELECT * FROM report WHERE sku ILIKE ?";
-
-        return jdbcTemplate.queryForList(sql, safeSku);
     }
 
     public boolean updateLastSuccess(String marketplace, String sku){
@@ -473,7 +89,7 @@ public class Databasing {
             Instant timePlaced = Instant.parse(orderConfirmation.getNotification().getPublishDate());
 
             String sql = """
-                    INSERT INTO orders (order_id, marketplace, status, items, time_placed)
+                    INSERT INTO orders (order_id, marketplace, status, items, created_at)
                     VALUES (?, ?, ?, ?::jsonb, ?)
                     """;
 
@@ -511,8 +127,6 @@ public class Databasing {
             String sku = orderItem.getProduct().getSellerSku();
             int quantity = orderItem.getQuantityOrdered();
 
-            Webhook.sendAmazonMessage(String.format("Databasing: An Amazon item has sold and is UNSHIPPED. Sku: %s with Quantity: %d", sku, quantity));
-
             ObjectNode item = mapper.createObjectNode();
             item.put("sku", sku);
             item.put("quantity", quantity);
@@ -526,7 +140,7 @@ public class Databasing {
             Instant timePlaced = Instant.parse(amazonOrder.getCreatedTime());
 
             String sql = """
-                    INSERT INTO orders (order_id, marketplace, status, items, time_placed)
+                    INSERT INTO orders (order_id, marketplace, status, items, created_at)
                     VALUES (?, ?, ?, ?::jsonb, ?)
                     """;
 
@@ -552,8 +166,8 @@ public class Databasing {
         order.setOrderId(rs.getString("order_id"));
         order.setMarketplace(Marketplace.valueOf(rs.getString("marketplace").toUpperCase()));
         order.setStatus(rs.getString("status"));
-        order.setTimePlaced(rs.getTimestamp("time_placed"));
         order.setCreatedAt(rs.getTimestamp("created_at"));
+        order.setUpdatedAt(rs.getTimestamp("updated_at"));
 
         try {
             List<Order.Item> items = mapper.readValue(

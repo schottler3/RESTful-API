@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import dev.lucasschottler.api.Webhook;
 import dev.lucasschottler.api.update.Actions;
 import dev.lucasschottler.database.Databasing;
-import dev.lucasschottler.marketplaces.types.EbayOrderConfirmation;
+import dev.lucasschottler.marketplaces.ingresTypes.EbayOrderConfirmation;
 import dev.lucasschottler.marketplaces.util.JsonToData;
 
 import java.nio.charset.StandardCharsets;
@@ -67,12 +67,14 @@ class MarketplaceListener {
     @PostMapping("/ebay")
     public ResponseEntity<Void> handleEbayEvent(@RequestBody String rawJson) {
         EbayOrderConfirmation order = JsonToData.parseEbayOrderConfirmation(rawJson);
+
+        logger.info("Marketplaces: Ebay order: {}", rawJson);
     
         if (order == null) {
             return ResponseEntity.badRequest().build();
         }
     
-        actions.updateSquareInventory(db.addEbayOrder(order));
+        //actions.updateSquareInventory(db.addEbayOrder(order));
     
         return ResponseEntity.noContent().build();
     }

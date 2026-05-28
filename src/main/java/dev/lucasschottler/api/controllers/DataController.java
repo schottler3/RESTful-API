@@ -19,8 +19,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import dev.lucasschottler.database.DatabaseItem;
 import dev.lucasschottler.database.Databasing;
+import dev.lucasschottler.database.queries.DatabaseItemQueries;
+import dev.lucasschottler.database.tableData.DatabaseItem;
 import dev.lucasschottler.marketplaces.Amazon;
 import dev.lucasschottler.api.StateService;
 import dev.lucasschottler.api.square.Square;
@@ -30,15 +31,15 @@ import dev.lucasschottler.api.update.Actions;
 @RequestMapping("/superior/data")
 public class DataController {
 
-    private final Databasing db;
+    private final DatabaseItemQueries databaseItemQueries;
     private final Actions actions;
     private final StateService stateService;
     private final Square square;
     private static final Logger logger = LoggerFactory.getLogger(DataController.class);
     private static final String IS_UPDATING_KEY = "isUpdating";
 
-    public DataController(Databasing db, Actions actions, StateService stateService, Square square) {
-        this.db = db;
+    public DataController(DatabaseItemQueries databaseItemQueries, Actions actions, StateService stateService, Square square) {
+        this.databaseItemQueries = databaseItemQueries;
         this.actions = actions;
         this.stateService = stateService;
         this.square = square;
@@ -68,11 +69,8 @@ public class DataController {
             }
         }
 
-        List<java.util.Map<String, Object>> results = null;
-
         try {
-            results = db.queryDatabase(keywords, resultLimit, time);
-            return ResponseEntity.ok(results);
+            return ResponseEntity.ok(databaseItemQueries.queryDatabase(keywords, resultLimit, time));
         } catch (IllegalArgumentException e) {
             logger.error("Invalid argument: " + e.getMessage(), e);
             return ResponseEntity.badRequest()
@@ -117,7 +115,7 @@ public class DataController {
                         continue;
                     }
                     else if(toUsePrice == null || toUsePrice == 0){
-                        toUsePrice = new DatabaseItem(db.getData(sku)).lakes_price;
+                        toUsePrice = databaseItemQueries.getData(sku).lakes_price;
                     }
 
                     if(toUsePrice == null){
@@ -132,9 +130,9 @@ public class DataController {
 
                     logger.info("Data: Updating prices, minimum: {}, calculated: {}, maximum: {}", minimum_price, calculated_price, maximum_price);
 
-                    db.patchItem(sku, "minimum_price", String.valueOf(minimum_price));
-                    db.patchItem(sku, "calculated_price", String.valueOf(calculated_price));
-                    db.patchItem(sku, "maximum_price", String.valueOf(maximum_price));
+                    databaseItemQueries.patchItem(sku, "minimum_price", String.valueOf(minimum_price));
+                    databaseItemQueries.patchItem(sku, "calculated_price", String.valueOf(calculated_price));
+                    databaseItemQueries.patchItem(sku, "maximum_price", String.valueOf(maximum_price));
                 }
 
                 if (attribute.equals("fulfillment") && Integer.parseInt(newValue) <= 0){
@@ -150,7 +148,7 @@ public class DataController {
                 }
                 
                 logger.info("Attempt on Change - sku: {}, attribute: {}, new: {}", sku, attribute, newValue);
-                if(db.patchItem(sku, attribute, newValue)){
+                if(databaseItemQueries.patchItem(sku, attribute, newValue)){
                     logger.info("Success on Change: sku: {}, attribute: {}, new: {}", sku, attribute, newValue);
                     actions.updateItem(sku);
                 }
@@ -174,19 +172,11 @@ public class DataController {
     }
 
     @GetMapping("/item/{sku}")
-    public ResponseEntity<Map<String, Object>> getItem(@PathVariable String sku) {
+    public ResponseEntity<?> getItem(@PathVariable String sku) {
        //logger.info("Data: Getting item data for sku: {}", sku);
 
         try {
-            Map<String, Object> item = db.getData(sku);
-
-            if (item == null) {
-                return ResponseEntity.notFound().build();
-            }
-
-            //logger.info("Data: item: {}", item);
-
-            return ResponseEntity.ok(item);
+            return ResponseEntity.ok(databaseItemQueries.getData(sku));
 
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
@@ -209,7 +199,7 @@ public class DataController {
                     .body(Map.of("error", "Failed to reset item - item not found or reset failed"));
             }
             
-            Map<String, Object> updatedItem = db.getData(sku);
+            DatabaseItem updatedItem = databaseItemQueries.getData(sku);
             
             if (updatedItem == null) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -233,7 +223,7 @@ public class DataController {
 
         logger.info("Data: Received request to add new sku: {}", sku);
 
-        if(db.createItem(sku, marketplaces)){
+        if(databaseItemQueries.createItem(sku, marketplaces)){
             logger.info("Data: Successfully added new sku: {}", sku);
             return ResponseEntity.ok("success");
         }
@@ -322,7 +312,7 @@ public class DataController {
     @DeleteMapping({"/{sku}"})
     public ResponseEntity<Map<String,String>> deleteItemBySku(@PathVariable String sku){
 
-        if(db.deleteItem(sku)){
+        if(databaseItemQueries.deleteItem(sku)){
             return ResponseEntity.ok(Map.of("message", "success"));
         }
         

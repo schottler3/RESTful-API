@@ -8,9 +8,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import dev.lucasschottler.api.Webhook;
-import dev.lucasschottler.database.DatabaseItem;
+import dev.lucasschottler.database.tableData.DatabaseItem;
+import dev.lucasschottler.marketplaces.ingresTypes.AmazonOrder;
 import dev.lucasschottler.marketplaces.util.JsonToData;
-import dev.lucasschottler.marketplaces.types.AmazonOrder;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 
