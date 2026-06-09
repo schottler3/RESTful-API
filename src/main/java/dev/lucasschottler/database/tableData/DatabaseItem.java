@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 
 import dev.lucasschottler.api.controllers.BaseController;
 import dev.lucasschottler.api.square.Square;
+import dev.lucasschottler.api.update.Actions;
 import dev.lucasschottler.database.Databasing;
 import dev.lucasschottler.database.queries.BomQueries;
 import dev.lucasschottler.database.queries.DatabaseItemQueries;
@@ -228,21 +229,32 @@ public class DatabaseItem {
         }
     }
 
-    public int getQuantity(DatabaseItemQueries db, BomQueries bomQueries){
-        if(this.square_variation_id != null && !this.square_variation_id.isBlank()){
-            return square.getInventoryCountByMpn(this.mpn);
-        }
-
+    public int getQuantity(DatabaseItemQueries db, BomQueries bomQueries, Actions actions){
         List<Bom> bomData = bomQueries.getBom(this.mpn);
 
         if(bomData != null && !bomData.isEmpty()){
+
+            int clampQuantity = 0;
+
             for(Bom bomItem : bomData){
                 DatabaseItem parentItem = db.getData(bomItem.parent_sku);
+                int quantity = (int) Math.floor(parentItem.getQuantity(db, bomQueries, actions) * bomItem.ratio);
+
+                if(quantity < clampQuantity){
+                    clampQuantity = quantity;
+                }
             }
+
+            return clampQuantity;
+
         }
 
-        return 0;
-        
+        if(this.square_variation_id != null && !this.square_variation_id.isBlank()){
+            return square.getInventoryCountByMpn(this.mpn);
+        } else {
+            actions.updateItem(this.sku);
+            return this.quantity;
+        }
     }
     
     @Override

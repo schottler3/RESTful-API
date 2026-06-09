@@ -1,6 +1,7 @@
 package dev.lucasschottler.api.update;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -39,6 +40,8 @@ public class Actions {
     private final Ebay ebay;
     private Lakes lakes;
     private Amazon amazon = new Amazon();
+
+    private UUID batchId;
 
     public Actions(
         Databasing db, 
@@ -174,6 +177,10 @@ public class Actions {
     public void updateInventory() {
         List<DatabaseItem> data = databaseItemQueries.queryDatabase(null, 12000, null);
 
+        batchId = UUID.randomUUID();
+
+        logger.info("Actions: Current batchId: {}", batchId);
+
         ExecutorService executor = Executors.newFixedThreadPool(12);
 
         try {
@@ -200,13 +207,13 @@ public class Actions {
 
     private void processItem(DatabaseItem dbItem) {
         try {
-            if (dbItem.square_variation_id != null) {
-                Integer square_quantity = square.getInventoryCountByVariationID(dbItem.square_variation_id);
-                if (square_quantity != null) {
-                    databaseItemQueries.updateCustomQuantity(dbItem.sku, square_quantity);
-                    dbItem.custom_quantity = square_quantity;
-                }
-            }
+            // if (dbItem.square_variation_id != null) {
+            //     Integer square_quantity = square.getInventoryCountByVariationID(dbItem.square_variation_id);
+            //     if (square_quantity != null) {
+            //         databaseItemQueries.updateCustomQuantity(dbItem.sku, square_quantity);
+            //         dbItem.custom_quantity = square_quantity;
+            //     }
+            // }
 
             updateAndPushItem(dbItem.sku);
 
