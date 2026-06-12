@@ -31,6 +31,22 @@ public class EbayOffer {
     private List<String> storeCategoryNames;
     private Tax tax;
 
+    public String getListingId() {
+        return listing != null ? listing.getListingId() : null;
+    }
+
+    public String getListingStatus() {
+        return listing != null ? listing.getListingStatus() : null;
+    }
+
+    public boolean isListingOnHold() {
+        return listing != null && listing.isListingOnHold();
+    }
+
+    public int getSoldQuantity() {
+        return listing != null ? listing.getSoldQuantity() : 0;
+    }
+
     @Data
     public static class Charity {
         private String charityId;

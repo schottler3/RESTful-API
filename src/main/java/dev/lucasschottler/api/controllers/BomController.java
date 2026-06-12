@@ -1,5 +1,6 @@
 package dev.lucasschottler.api.controllers;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -35,60 +36,66 @@ class BomController {
     }
 
     @PutMapping(value = "/add/{child_sku}", consumes = "application/json")
-    public ResponseEntity<?> updateBomDependencies(@PathVariable String child_sku, @RequestBody(required = true) List<Map<String, Object>> requestBody) {
+    public ResponseEntity<?> updateBomDependencies(
+            @PathVariable String child_sku,
+            @RequestBody List<Map<String, Object>> requestBody) {
 
-        if (requestBody == null || requestBody.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Request body is missing or empty"));
-        }
+    if (requestBody == null || requestBody.isEmpty()) {
+        return ResponseEntity.badRequest().body(Map.of("error", "Request body is missing or empty"));
+    }
 
-        //logger.info("Received PUT request with {} bom items", requestBody.size());
-
-        List<Map<String, Object>> failures = new java.util.ArrayList<>();
-
+    List<Map<String, Object>> failures = new ArrayList<>();
         try {
             for (int i = 0; i < requestBody.size(); i++) {
                 Map<String, Object> bomItem = requestBody.get(i);
                 String parent_sku = (String) bomItem.get("parent_sku");
+                Object ratioRaw = bomItem.get("ratio");
 
-                Double ratio = (Double) bomItem.get("ratio");
-
-                if (parent_sku == null || ratio == null) {
-                    logger.warn("Missing required fields in PUT: " + i);
+                if (parent_sku == null || ratioRaw == null) {
+                    logger.warn("Missing required fields in PUT at index: {}", i);
                     failures.add(bomItem);
                     continue;
                 }
 
-                if(ratio == -1){
+                double ratio;
+                try {
+                    ratio = ((Number) ratioRaw).doubleValue();
+                } catch (ClassCastException e) {
+                    logger.warn("Invalid ratio type at index {}: {}", i, ratioRaw.getClass().getSimpleName());
+                    failures.add(bomItem);
+                    continue;
+                }
+
+                if (ratio <= -1) {
                     int removed = bomQueries.removeBom(child_sku, parent_sku);
                     if (removed > 0) {
-                        logger.info("Success on bom removal - parent_id: {}, child_id: {}", parent_sku, child_sku);
+                        logger.info("Success on bom removal - parent_sku: {}, child_sku: {}", parent_sku, child_sku);
                     } else if (removed == 0) {
-                        logger.info("BOM item not found (skipping) - parent_id: {}, child_id: {}", parent_sku, child_sku);
+                        logger.info("BOM item not found (skipping) - parent_sku: {}, child_sku: {}", parent_sku, child_sku);
                     } else {
-                        logger.error("Failure on bom removal - parent_id: {}, child_id: {}", parent_sku, child_sku);
+                        logger.error("Failure on bom removal - parent_sku: {}, child_sku: {}", parent_sku, child_sku);
                         failures.add(bomItem);
                     }
                     continue;
                 }
-                
-                //logger.info("Attempt on bom addition - parent_id: {}, child_id: {}, ratio: {}", child_sku, parent_sku, ratio);
-                if(bomQueries.addBom(child_sku, parent_sku, ratio)){
-                    logger.info("Success on bom addition - parent_id: {}, child_id: {}, ratio: {}", parent_sku, child_sku, ratio);
+
+                if (bomQueries.addBom(child_sku, parent_sku, ratio)) {
+                    logger.info("Success on bom addition - parent_sku: {}, child_sku: {}, ratio: {}", parent_sku, child_sku, ratio);
                 } else {
-                    logger.info("Failure on bom addition - parent_id: {}, child_id: {}, ratio: {}", parent_sku, child_sku, ratio);
+                    logger.error("Failure on bom addition - parent_sku: {}, child_sku: {}, ratio: {}", parent_sku, child_sku, ratio);
                     failures.add(bomItem);
                 }
             }
-            
-            if(failures.isEmpty()){
+
+            if (failures.isEmpty()) {
                 return ResponseEntity.ok(Map.of("message", "All PUTs processed successfully"));
             } else {
                 return ResponseEntity.status(HttpStatus.MULTI_STATUS).body(Map.of("failures", failures));
             }
         } catch (Exception e) {
-            logger.error("Error processing Put request", e);
+            logger.error("Error processing PUT request", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "Internal server error"));
+                    .body(Map.of("error", "Internal server error"));
         }
     }
 }

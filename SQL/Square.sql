@@ -26,3 +26,5 @@ ALTER TABLE bom ADD COLUMN ratio NUMERIC;
 SELECT * FROM orders;
 
 SELECT * FROM bom;
+
+ALTER TABLE superior ADD COLUMN square_quantity INT;

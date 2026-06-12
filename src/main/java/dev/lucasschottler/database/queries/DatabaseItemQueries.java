@@ -5,8 +5,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +25,7 @@ public class DatabaseItemQueries {
     private static final Logger logger = LoggerFactory.getLogger(DatabaseItemQueries.class); 
     private final JdbcTemplate db;
 
-    private static final Set<String> integerColumns = Set.of("quantity", "custom_quantity", "fulfillment");
+    private static final Set<String> integerColumns = Set.of("quantity", "custom_quantity", "square_quantity", "fulfillment");
 
     private static final Set<String> doubleColumns = Set.of(
         "width", "length", "height", "weight",
@@ -43,7 +43,8 @@ public class DatabaseItemQueries {
         "bulk_split_price",
         // String columns
         "type", "mpn", "title", "description", "upc", "sku",
-        "images", "barcode_title", "marketplaces", "square_variation_id", "ebay_listing_id"
+        "images", "barcode_title", "marketplaces", "square_variation_id", "ebay_listing_id", 
+        "batch_id"
     );
 
     @Autowired
@@ -65,6 +66,7 @@ public class DatabaseItemQueries {
         item.setUpc(rs.getString("upc"));
         item.setQuantity(rs.getObject("quantity", Integer.class));
         item.setCustom_quantity(rs.getObject("custom_quantity", Integer.class));
+        item.setSquare_quantity(rs.getObject("square_quantity", Integer.class));
         item.setSku(rs.getString("sku"));
         item.setUpdated_at(rs.getTimestamp("updated_at"));
         item.setImages(rs.getString("images"));
@@ -273,22 +275,6 @@ public class DatabaseItemQueries {
 
     }
 
-    public boolean updateCustomQuantity(String sku, int quantity){
-
-        //logger.info("Databasing: Updating Custom quantity on sku = {} with q = {}", sku, quantity);
-
-        String sql = "UPDATE superior SET custom_quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE sku = ?";
-
-        if(db.update(sql, quantity, sku) > 0){
-            logger.info("Databasing: Custom quantity updated successfully for item: {} with quantity: {}", sku, quantity);
-            return true;
-        }
-        else {
-            logger.info("Databasing: Custom quantity update failure for item: {} with quantity: {}", sku, quantity);
-            return false;
-        }
-    }
-
     public boolean resetItem(LakesItem lakesItem) {
         HashMap<String, Double> amazonPrices = Amazon.getPrices(lakesItem.price);
         if (amazonPrices == null) {
@@ -310,6 +296,7 @@ public class DatabaseItemQueries {
                 upc = ?,
                 quantity = ?,
                 custom_quantity = NULL,
+                square_quantity = NULL,
                 sku = ?,
                 package_width = NULL,
                 package_length = NULL,
@@ -351,4 +338,16 @@ public class DatabaseItemQueries {
             return false;
         }
     }
+
+    public UUID getBatchId(String sku) {
+        String sql = "SELECT batch_id FROM superior WHERE sku = ? LIMIT 1";
+        try {
+            return db.queryForObject(sql, UUID.class, sku);
+        } catch (Exception e) {
+            logger.info("Databasing: Could not find superior item with sku: {}", sku);
+            return null;
+        }
+    }
+
+
 }

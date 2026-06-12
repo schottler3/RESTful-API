@@ -123,17 +123,6 @@ public class Ebay {
             return false;
         }
 
-        //logger.info("Ebay: Description length for sku: {}: {}", dbItem.sku, description.length());
-
-        Integer custom_quantity = dbItem.custom_quantity;
-        int lakes_quantity = dbItem.quantity;
-
-        //logger.info("Ebay: Custom_quantity: {} lakes_quantity: {}", custom_quantity, lakes_quantity);
-
-        int quantity = custom_quantity != null && custom_quantity > 0 
-            ? custom_quantity 
-            : (int) (lakes_quantity * 0.66);
-
         // #region JSON_BUILD
 
         // Build product object
@@ -197,11 +186,9 @@ public class Ebay {
         ObjectNode fulfillmentTime = shipToLocationAvailability.putObject("fulfillmentTime");
         fulfillmentTime.put("unit", "BUSINESS_DAY");
 
-        int daysForFulfillment = dbItem.custom_quantity != null && dbItem.custom_quantity > 0 ? 1 : 5;
-        daysForFulfillment = dbItem.fulfillment != null ? dbItem.fulfillment : 5;
-        fulfillmentTime.put("value", daysForFulfillment);
+        fulfillmentTime.put("value", dbItem.getFulfillmentTime());
         
-        shipToLocationAvailability.put("quantity", quantity);
+        shipToLocationAvailability.put("quantity", dbItem.getQuantityToUse());
         shipToLocationAvailability.put("merchantLocationKey", MERCHANT_LOCATION_KEY);
         
         // #endregion
@@ -286,7 +273,7 @@ public class Ebay {
         fulfillmentTime.put("unit", "BUSINESS_DAY");
         fulfillmentTime.put("value", dbItem.fulfillment);
 
-        shipToLocationAvailability.put("quantity", dbItem.custom_quantity != null && dbItem.custom_quantity > 0 ? dbItem.custom_quantity : (int) (dbItem.quantity * .66));
+        shipToLocationAvailability.put("quantity", dbItem.getQuantityToUse());
         shipToLocationAvailability.put("merchantLocationKey", "Default-EBAY_US");
 
         // #endregion 
@@ -322,10 +309,7 @@ public class Ebay {
         price.put("value", dbItem.calculated_price);
 
         // Quantity
-        offerUpdateNode.put("availableQuantity",
-            dbItem.custom_quantity != null && dbItem.custom_quantity > 0
-                ? dbItem.custom_quantity
-                : (int) (dbItem.quantity * .66));
+        offerUpdateNode.put("availableQuantity", dbItem.getQuantityToUse());
 
         // Fulfillment policy
         Policies.FulfillmentPolicy fulfillmentPolicy = policies.getFulfillmentPolicy(

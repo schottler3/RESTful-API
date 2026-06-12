@@ -1,5 +1,7 @@
 package dev.lucasschottler.database.queries;
 
+import java.util.UUID;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -18,15 +20,15 @@ public class BatchQueries {
         this.db = db;
     }
 
-    public Batch getBatch(String batch_id) {
+    public Batch getBatch(UUID batch_id) {
         return db.queryForObject("SELECT * FROM batch WHERE batch_id = ? LIMIT 1", BATCH_ROW_MAPPER, batch_id);
     }
 
-    public boolean addBatch(String batch_id){
+    public boolean createBatch(UUID batch_id){
         try{
             String sql = "INSERT INTO batch (batch_id) VALUES (?)";
 
-            return db.update(sql, batch_id) > 0;
+            return db.update(sql, batch_id.toString()) > 0;
         } catch (Exception e) {
             logger.error("Error adding Error item with data, batch_id {}", batch_id);
             return false;

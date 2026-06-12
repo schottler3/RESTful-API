@@ -1,6 +1,7 @@
 package dev.lucasschottler.database.queries;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,15 +19,15 @@ public class ErrorQueries {
         this.db = db;
     }
 
-    public List<Error> getErrorsByBatchId(String batch_id) {
+    public List<Error> getErrors(UUID batch_id) {
         return db.query("SELECT * FROM error WHERE batch_id = ?", ERROR_ROW_MAPPER, batch_id);
     }
 
-    public List<Error> getErrorsBySku(String sku){
+    public List<Error> getErrors(String sku){
         return db.query("SELECT * FROM error WHERE sku ILIKE ?", ERROR_ROW_MAPPER, sku);
     }
 
-    public boolean addError(String batch_id, String sku, String error_message){
+    public boolean addError(UUID batch_id, String sku, String error_message){
         try{
             String sql = "INSERT INTO error (batch_id, sku, error_message) VALUES (?, ?, ?)";
 

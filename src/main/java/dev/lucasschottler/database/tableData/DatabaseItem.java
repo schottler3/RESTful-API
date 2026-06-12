@@ -3,13 +3,14 @@ package dev.lucasschottler.database.tableData;
 import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.EmptyResultDataAccessException;
 
-import dev.lucasschottler.api.controllers.BaseController;
 import dev.lucasschottler.api.square.Square;
 import dev.lucasschottler.api.update.Actions;
-import dev.lucasschottler.database.Databasing;
 import dev.lucasschottler.database.queries.BomQueries;
 import dev.lucasschottler.database.queries.DatabaseItemQueries;
 import dev.lucasschottler.lakes.LakesItem;
@@ -36,6 +37,7 @@ public class DatabaseItem {
     public String upc;
     public Integer quantity;
     public Integer custom_quantity;
+    public Integer square_quantity;
     public String sku;
     public Timestamp updated_at;
     public String images;
@@ -55,6 +57,7 @@ public class DatabaseItem {
     public Timestamp last_amazon;
     public Timestamp last_ebay;
     public String ebay_listing_id;
+    public UUID batch_id;
 
     private static final Logger logger = LoggerFactory.getLogger(DatabaseItem.class);
     private static final Square square = new Square();
@@ -82,25 +85,9 @@ public class DatabaseItem {
         this.maximum_price = amazonPrices.get("maximum_price");
     }
 
-    public void updateItem(DatabaseItemQueries db) {
-        Integer squareQuantity = square.getInventoryCountByMpn(this.mpn);
+    public void updateItem(DatabaseItemQueries db, BomQueries bq, UUID batch_id, Actions actions) {
 
-        logger.info("DatabaseItem: SquareQuantity = {}. sku = {}", squareQuantity, this.sku);
-
-        if (squareQuantity != null && !squareQuantity.equals(this.custom_quantity)) {
-            logger.info("Custom Quantity (Square) Updated: {} -> {}", this.custom_quantity, squareQuantity);
-            this.custom_quantity = squareQuantity;
-            if (!db.patchItem(this.sku, "custom_quantity", squareQuantity)) {
-                logger.warn("Database Item UPDATE failure on attribute = custom_quantity: sku = {}", this.sku);
-            }
-        }
-
-        if (this.fulfillment == null) {
-            this.fulfillment = DEFAULT_FULFILLMENT;
-            if (!db.patchItem(this.sku, "fulfillment", this.fulfillment)) {
-                logger.warn("Database Item UPDATE failure on attribute = fulfillment: sku = {}", this.sku);
-            }
-        }
+        this.batch_id = batch_id;
 
         if (this.square_variation_id == null || this.square_variation_id.isBlank()) {
             //logger.info("Database Item Updating square_variation_id");
@@ -116,7 +103,7 @@ public class DatabaseItem {
         }
 
         if(this.ebay_listing_id == null || this.ebay_listing_id.isBlank()){
-            String listingId = ebay.getOffer(this.sku).get(0).getListing().getListingId();
+            String listingId = ebay.getOffer(this.sku).get(0).getListingId();
             if(listingId != null){
                 if(!db.patchItem(this.sku, "ebay_listing_id", listingId)){
                     logger.warn("Database Item UPDATE failure on attribute = ebay_listing_id: sku = {}", this.sku);
@@ -125,6 +112,19 @@ public class DatabaseItem {
                 logger.warn("Database update on item's ebay_listing_id was null from ebay!, {}", this.sku);
             }
         }
+
+        setClampPrice(bq, db, batch_id, actions);
+
+        int quantity = getClampQuantity(db, bq, actions, batch_id);
+
+        if (this.custom_quantity == null || this.custom_quantity != quantity) {
+            logger.info("Custom Quantity (Square) Updated: {} -> {}", this.custom_quantity, quantity);
+            this.custom_quantity = quantity;
+            if (!db.patchItem(this.sku, "custom_quantity", quantity)) {
+                logger.warn("Database Item UPDATE failure on attribute = custom_quantity: sku = {}", this.sku);
+            }
+        }
+
     }
 
     public void updateItemUsingLakes(LakesItem lakesItem, DatabaseItemQueries db) {
@@ -229,19 +229,30 @@ public class DatabaseItem {
         }
     }
 
-    public int getQuantity(DatabaseItemQueries db, BomQueries bomQueries, Actions actions){
+    public int getClampQuantity(DatabaseItemQueries db, BomQueries bomQueries, Actions actions, UUID batchId){
+        logger.info("DatabaseItem: Getting clampedQuantity from item: {}", this.sku );
         List<Bom> bomData = bomQueries.getBom(this.mpn);
 
         if(bomData != null && !bomData.isEmpty()){
-
+            logger.info("DatabaseItem: Found bomData {}", this.sku );
             int clampQuantity = 0;
 
             for(Bom bomItem : bomData){
+                logger.info("DatabaseItem: Bom item: {} of: {}", bomItem, this.sku );
+
+                UUID parentBatchId = db.getBatchId(bomItem.parent_sku);
+
+                if(parentBatchId == null || !parentBatchId.equals(batchId)){
+                    logger.info("DatabaseItem-getClampQuantity: Going one deeper on item: {}", bomItem.parent_sku);
+                    actions.updateItem(bomItem.parent_sku);
+                }
+
                 DatabaseItem parentItem = db.getData(bomItem.parent_sku);
-                int quantity = (int) Math.floor(parentItem.getQuantity(db, bomQueries, actions) * bomItem.ratio);
+                int quantity = (int) Math.floor(parentItem.getClampQuantity(db, bomQueries, actions, batchId) * bomItem.ratio);
 
                 if(quantity < clampQuantity){
                     clampQuantity = quantity;
+                    logger.info("DatabaseItem: New clamp quantity found {}", clampQuantity);
                 }
             }
 
@@ -250,13 +261,98 @@ public class DatabaseItem {
         }
 
         if(this.square_variation_id != null && !this.square_variation_id.isBlank()){
-            return square.getInventoryCountByMpn(this.mpn);
+            Integer squareInventory = square.getInventoryCountByMpn(this.mpn);
+
+            if(squareInventory != null){                
+                logger.info("DatabaseItem: Square inventory exists: {} for: {}", squareInventory, this.sku );
+                return squareInventory;
+            } else {
+                logger.info("DatabaseItem: Square inventory cant be reached! {}", this.sku);
+            }
+        }
+        logger.info("DatabaseItem: No square inventory found and no bomData quantities for: {} using the existing custom_quantity: {} or quantity: {}", this.sku, this.custom_quantity, this.quantity );
+
+        return this.custom_quantity != null && this.custom_quantity > 0 ? this.custom_quantity : this.quantity;
+    }
+
+    public double getQuantityToUse(){
+        if(this.custom_quantity != null && this.custom_quantity > 0){
+            return this.custom_quantity;
+        } else if(this.square_quantity != null && this.square_quantity > 0){
+            return this.square_quantity;
+        } else if(this.quantity != null && this.quantity > 0){
+            return this.quantity * .66;
         } else {
-            actions.updateItem(this.sku);
-            return this.quantity;
+            return 0;
+        }
+    }
+
+    public int getFulfillmentTime(){
+        if(this.fulfillment != null && this.fulfillment > 0){
+            return this.fulfillment;
+        } else if(this.custom_quantity != null && this.custom_quantity > 0 || this.square_quantity != null && this.square_quantity > 0){
+            return 1;
+        } else {
+            return 5;
+        }
+    }
+
+    public void setClampPrice(BomQueries bomQueries, DatabaseItemQueries db, UUID batchId, Actions actions){
+        Double bulkSplitPrice = 0.0;
+        List<Bom> bomData = bomQueries.getBom(this.mpn);
+
+        if(bomData != null && !bomData.isEmpty()){
+
+            for (Bom bomItem : bomData){
+                String parent_sku = bomItem.parent_sku;
+                if(parent_sku != null){
+
+                    UUID parentBatchId = db.getBatchId(parent_sku);
+
+                    if(parentBatchId == null || !db.getBatchId(parent_sku).equals(batchId)){
+                        actions.updateItem(parent_sku);
+                    }
+
+                    DatabaseItem parentDbItem;
+
+                    try {
+                        parentDbItem = db.getData(parent_sku);
+                    } catch (EmptyResultDataAccessException e) {
+                        logger.warn("Actions - Bom: dependency not found in database: {}", parent_sku);
+                        continue;
+                    }
+
+                    Double lakes_price = parentDbItem.lakes_price;
+                    Double ratio = bomItem.ratio;
+
+                    if(ratio != null){
+                        if(lakes_price != null && lakes_price > 0){
+                            bulkSplitPrice += lakes_price * ratio;
+                        }
+                    }
+                }
+            }
+        }
+
+        if(bulkSplitPrice != null && bulkSplitPrice > 0){
+            this.setPricingFields(bulkSplitPrice, db);
         }
     }
     
+    public DatabaseItem getParentData(BomQueries bomQueries, DatabaseItemQueries db){
+        List<Bom> bomData = bomQueries.getBom(this.mpn);
+
+        if(bomData != null && bomData.size() > 0){
+            String child_sku = bomData.get(0).child_sku;
+
+            if(child_sku != null){
+                return db.getData(child_sku);
+            }
+        }
+
+        return null;
+    }
+
     @Override
     public String toString() {
         return "DatabaseItem {\n" +
@@ -272,6 +368,7 @@ public class DatabaseItem {
                 "    upc='" + upc + "',\n" +
                 "    quantity=" + quantity + ",\n" +
                 "    custom_quantity=" + custom_quantity + ",\n" +
+                "    square_quantity=" + square_quantity + ",\n" +
                 "    sku='" + sku + "',\n" +
                 "    updated_at=" + updated_at + ",\n" +
                 "    milwaukee_images='" + images + "',\n" +
@@ -290,6 +387,7 @@ public class DatabaseItem {
                 "    marketplaces=" + marketplaces + "\n" +
                 "    last_amazon=" + last_amazon + "\n" +
                 "    last_ebay=" + last_ebay + "\n" +
+                "    batch_id=" + batch_id + "\n" +
                 '}';
     }
 

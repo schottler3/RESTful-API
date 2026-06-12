@@ -19,10 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import dev.lucasschottler.database.Databasing;
 import dev.lucasschottler.database.queries.DatabaseItemQueries;
 import dev.lucasschottler.database.tableData.DatabaseItem;
-import dev.lucasschottler.marketplaces.Amazon;
 import dev.lucasschottler.api.StateService;
 import dev.lucasschottler.api.square.Square;
 import dev.lucasschottler.api.update.Actions;
@@ -105,34 +103,6 @@ public class DataController {
                     logger.warn("Missing required fields in patch: " + i);
                     failures.add(change);
                     continue;
-                }
-
-                if (attribute.equals("custom_price")){
-                    Double toUsePrice = Double.parseDouble(newValue);
-                    if(toUsePrice < 0){
-                        logger.error("Failure on Change: sku: {}, attribute: {}, new: {}", sku, attribute, newValue);
-                        failures.add(change);
-                        continue;
-                    }
-                    else if(toUsePrice == null || toUsePrice == 0){
-                        toUsePrice = databaseItemQueries.getData(sku).lakes_price;
-                    }
-
-                    if(toUsePrice == null){
-                        toUsePrice = -1.0;
-                    }
-
-                    HashMap<String,Double> amazonPrices = Amazon.getPrices(toUsePrice);
-
-                    double minimum_price = amazonPrices.get("minimum_price");
-                    double calculated_price = amazonPrices.get("middle_price");
-                    double maximum_price = amazonPrices.get("maximum_price");
-
-                    logger.info("Data: Updating prices, minimum: {}, calculated: {}, maximum: {}", minimum_price, calculated_price, maximum_price);
-
-                    databaseItemQueries.patchItem(sku, "minimum_price", String.valueOf(minimum_price));
-                    databaseItemQueries.patchItem(sku, "calculated_price", String.valueOf(calculated_price));
-                    databaseItemQueries.patchItem(sku, "maximum_price", String.valueOf(maximum_price));
                 }
 
                 if (attribute.equals("fulfillment") && Integer.parseInt(newValue) <= 0){
